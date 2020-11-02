@@ -357,17 +357,11 @@ static void processinput(FILE *infile,FILE *outfile) {
 	// write decoding information to front of output file
 	printf("Writing metadata . . .");
 	byte writebuffer[buffersize];
-//(could count from 0==1 to use 7 instead of 8 bits ...)
-	writebuffer[0] = uniquebytes; //first byte is count of unique bytes, <=256
-//(could also count from 0, 5bits=32, 6bits=64...) doing this and reducing the previous line will never save more than a few bits
-	writebuffer[1] = maxstringlength; //second byte is the max length of an encoded string, this is (1/2) of the step value
-	// the depth is the string length ... need 2x the string length to ensure leading zeroes are handled correctly
-	// an immediate path of "1010" is different than the path "001010"
-	// after using the length of the string, the string could be "000001010" ....
-	// we need the depth to recover the actual string (doing it this way at least) ....
-/*****
-The first maxstringlength bits can be the depth, the second set of bits can be the string without unecessary leading zeroes *********************
-*****/
+	//(count from 0=1). first byte = count of unique bytes, <=256
+	writebuffer[0] = uniquebytes-1;
+	//next byte = the maxdepth (maximum encoding string length)
+	writebuffer[1] = maxstringlength; // maxstringlength < step value <= 2*maxstringlength
+	// storing the depth first, the depth is length maxstringlength, the encoding bits are length of each value's depth
 	int bufferpos=2; //track position for write buffer
 	int bitpos=0; //bit position within bufferpos
 	//for each byte + encoding . . .
@@ -381,28 +375,19 @@ The first maxstringlength bits can be the depth, the second set of bits can be t
 				writebuffer[++bufferpos]=0;
 			}
 		}
-		// store extra leading zeros to match max length
-		const int startx = maxstringlength-strlen(minheap[i]->strval);
-		for (x=0;x<startx;++x) {
-			writebuffer[bufferpos] <<= 1;
-			if (++bitpos==8) {
-				bitpos=0;
-				writebuffer[++bufferpos]=0;
-			}
-		}
-		// store the encoding string
-		for (x=0;x<maxstringlength-startx;++x) {
-			writebuffer[bufferpos] <<= 1;
-			writebuffer[bufferpos] |= minheap[i]->strval[x]-'0';
-			if (++bitpos==8) {
-				bitpos=0;
-				writebuffer[++bufferpos]=0;
-			}
-		}
 		// need the value's depth to avoid leading zero issues, + (another maxlength(encoded string)) bits
 		for (x=maxstringlength-1;x>=0;--x) {
 			writebuffer[bufferpos] <<= 1;
 			writebuffer[bufferpos] |= (minheap[i]->depth>>x)&1;
+			if (++bitpos==8) {
+				bitpos=0;
+				writebuffer[++bufferpos]=0;
+			}
+		}
+		// store the encoding string, the depth (previous block) is used to determine this length
+		for (x=0;writebuffer[x]!='\0';++x) {
+			writebuffer[bufferpos] <<= 1;
+			writebuffer[bufferpos] |= minheap[i]->strval[x]-'0';
 			if (++bitpos==8) {
 				bitpos=0;
 				writebuffer[++bufferpos]=0;

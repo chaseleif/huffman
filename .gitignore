@@ -1,3 +1,5 @@
 hfc
 *.o*
-compress*
+*.X*
+countsum
+test
