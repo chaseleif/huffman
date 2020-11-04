@@ -53,21 +53,9 @@ static byte generateencoding(node *root,const int path,const int steps) {
 // either extends a subtree or creates a new subtree, rootslen is updated as needed
 // returns the number of values consumed (2 or 1)
 static byte addtorootlist(node **roots,int *rootslen,ullbyte *val1,ullbyte *val2) {
-
-	int mini=-1; // mini==-1 when we make a new tree
-	unsigned long long minval=val1->count+val2->count; // minval will be the nodes sum
-	for (int i=0;i<*rootslen;++i) {
-		if (roots[i]->sum+val1->count<minval) {
-			mini=i;
-			minval=roots[i]->sum+val1->count;
-		}
-	}
-/*
-Algorithm descriptions I have seen say to add nodes back to the queue as they area created
-The code below accomplishes this logic, though the resulting file in my test cases was larger doing this
 	int mini;
 	unsigned long long minval;
-	if (*rootslen>1) {
+	if (*rootslen) {
 		while (1) {
 			mini=0;
 			minval=roots[0]->sum;
@@ -129,7 +117,7 @@ The code below accomplishes this logic, though the resulting file in my test cas
 		mini=-1;
 		minval=val1->count+val2->count;
 	}
-*/
+
 	// adding the next two values is less than adding to a tree
 	if (mini<0) {
 		// add a new subtree
@@ -268,7 +256,7 @@ static void recreatehuffmantree(node *root,ullbyte *val) {
 				node *newnode = (node*)malloc(sizeof(node));
 				newnode->right=NULL;
 				newnode->left=NULL;
-				newnode->vals=0;
+				newnode->sum=0;
 				trav->right=(void*)newnode;
 			}
 			trav=(node*)trav->right;
@@ -278,25 +266,26 @@ static void recreatehuffmantree(node *root,ullbyte *val) {
 				node *newnode = (node*)malloc(sizeof(node));
 				newnode->right=NULL;
 				newnode->left=NULL;
-				newnode->vals=0;
+				newnode->sum=0;
 				trav->left=(void*)newnode;
 			}
 			trav=(node*)trav->left;
 		}
 		++i;
 	}
-	++trav->vals;
-	if (val->strval[i]=='1') 
-		trav->right = (void*)val;
+	node *newnode = (node*)malloc(sizeof(node));
+	newnode->vals=val->val;
+	newnode->sum=1;
+	newnode->right=NULL;
+	newnode->left=NULL;
+	if (val->strval[i]=='1')
+		trav->right = (void*)newnode;
 	else
-		trav->left = (void*)val;
+		trav->left = (void*)newnode;
 }
 static void freedecodingtree(node *T) {
-	if (T->vals) {// this node points to values
-		if (T->vals==1)
-			freedecodingtree((node*)T->right);
+	if (T->vals>=0) // this node is a value
 		free(T);
-	}
 	else {
 		freedecodingtree((node*)T->right);
 		freedecodingtree((node*)T->left);
@@ -304,24 +293,12 @@ static void freedecodingtree(node *T) {
 	}
 }
 static byte decodestring(node *root,unsigned char *path) {
-	if (path[0]==42) return -42;
 	node *trav = root;
-	int i=0;
-	for ( ;path[i+1]!=42;++i) {
+	for (int i=0;path[i]!=42;++i) {
 		if (path[i]) trav=(node*)trav->right;
 		else trav=(node*)trav->left;
 	}
-	if (!trav->vals) return -42;
-	if (trav->vals==1) {
-		if (path[i]) return -42;
-printf("%.2x,",((ullbyte*)trav->left)->val);
-		return ((ullbyte*)trav->left)->val;
-	}
-	if (path[i]==1) {
-printf("0x%.2x,",((ullbyte*)trav->right)->val);
-return ((ullbyte*)trav->right)->val;
-}
-	return -42;
+	return trav->vals;
 }
 static void dorestore(FILE *infile,FILE *outfile) {
 	const int buffersize=4096;
@@ -340,6 +317,7 @@ static void dorestore(FILE *infile,FILE *outfile) {
 	root->right=NULL;
 	root->left=NULL;
 	root->vals=0;
+	root->sum=0;
 	int bytesremaining=uniquebytes;
 	while (bytesremaining>0) {
 		int groupsize=0;
@@ -387,10 +365,13 @@ static void dorestore(FILE *infile,FILE *outfile) {
 			printf("Dictionary: val=%.2x, path=%s\n",vals[newpos]->val,vals[newpos]->strval);
 //static void recreatehuffmantree(node *root,ullbyte *val,int path,int depth) {
 			recreatehuffmantree(root,vals[newpos]);
+			free(vals[newpos]);
 		}
 		bytesremaining-=groupsize;
 		--depth;
 	}
+	//align file on byte
+////////	if (bitshmt<7) ++bufferpos;
 	// root is now the same huffman tree the file was compressed with (minus frequency)
 	// the remainder of the file is data, read the file and traverse the tree to replace the values.
 	if (!ret) {
@@ -400,13 +381,13 @@ static void dorestore(FILE *infile,FILE *outfile) {
 	}
 	byte writebuffer[buffersize];
 	int writepos=0;
-	printhuffmantree(root);
+//	printhuffmantree(root);
 printf("\nDecoding: ");
 	while (ret) {
-		int pathi = -1;
-		do {
-			path[++pathi]=(buffer[bufferpos]>>bitshmt)&1;
-			path[pathi+1]=42;
+		node *trav = root;
+		while (!trav->sum) {
+			if ((buffer[bufferpos]>>bitshmt)&1) trav=(node*)trav->right;
+			else trav=(node*)trav->left;
 			if (--bitshmt<0) {
 				if (++bufferpos>=ret) {
 					ret=fread(buffer,sizeof(byte),buffersize,infile);
@@ -416,18 +397,20 @@ printf("\nDecoding: ");
 				}
 				bitshmt=7;
 			}
-		}while (decodestring(root,path)<0);
-		if (decodestring(root,path)>=0) {
-//printf("%c",decodestring(root,path));
-			writebuffer[writepos++]=decodestring(root,path);
+		}
+		if (trav->sum) {
+			writebuffer[writepos++]=trav->vals;
 			if (writepos==buffersize) {
-				fwrite(buffer,sizeof(byte),buffersize,outfile);
+				fwrite(writebuffer,sizeof(byte),writepos,outfile);
+				fflush(outfile);
 				writepos=0;
 			}
 		}
 	}
-printf("\n");
-	if (writepos) fwrite(buffer,sizeof(byte),writepos,outfile);
+	if (writepos) {
+		fwrite(writebuffer,sizeof(byte),writepos,outfile);
+		fflush(outfile);
+	}
 	printf("Wrote output file\n");
 	// free the decoding tree
 	freedecodingtree(root);
@@ -626,6 +609,7 @@ static void docompress(FILE *infile,FILE *outfile) {
 					if (flushbuffer) {
 						flushbuffer=0;
 						fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
+						fflush(outfile);
 						bufferpos=0;
 						writebuffer[0]=0;
 					}
@@ -636,8 +620,11 @@ static void docompress(FILE *infile,FILE *outfile) {
 //		printf("\n");
 	}
 	//final bits
-	if (bitshmt<7) fwrite(writebuffer,sizeof(byte),bufferpos+1,outfile);
-	else if (bufferpos) fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
+	if (bitshmt<7 || bufferpos) {
+		if (bitshmt<7) fwrite(writebuffer,sizeof(byte),bufferpos+1,outfile);
+		else if (bufferpos) fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
+		fflush(outfile);
+	}
 	//final clean up, remove all huffman nodes and ullbytes+their encodings
 	freehuffmantree(huffmanroot);
 }

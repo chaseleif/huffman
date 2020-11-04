@@ -14,7 +14,7 @@ struct node {
 	void *left;
 	void *right;
 	unsigned long long sum;
-	unsigned char vals;
+	uint8_t vals;
 };
 
 #endif
