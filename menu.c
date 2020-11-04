@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <pthread.h>
 
 //general menu char buffer size
 #define MAXSTRLEN 100

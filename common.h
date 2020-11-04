@@ -8,7 +8,6 @@
 struct ullbyte {
 	unsigned long long count;
 	uint8_t val;
-	unsigned char depth;
 	char *strval;
 };
 struct node {

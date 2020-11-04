@@ -1,20 +1,20 @@
 CC=gcc
-CFLAGS=-O3 -march=native -m64 -funroll-loops
+CFLAGS=-g -O0 -march=native -m64
 BINS=hfc
 
 all: $(BINS)
 
 .PHONY: huffmantree.o
 huffmantree.o: huffmantree.c
-	$(CC) $(CFLAGS) -pthread -c $^
+	$(CC) $(CFLAGS) -c $^
 
 .PHONY: menu.o
 menu.o: menu.c
-	$(CC) $(CFLAGS) -pthread -lncursesw -c $^
+	$(CC) $(CFLAGS) -lncursesw -c $^
 
 .PHONY: hfc
 hfc: menu.o huffmantree.o
-	$(CC) $(CFLAGS) -pthread -o $@ $^ -lncursesw
+	$(CC) $(CFLAGS) -o $@ $^ -lncursesw
 
 .PHONY: clean
 clean:
@@ -22,4 +22,4 @@ clean:
 
 .PHONY: test
 test: hfc
-	./hfc
+	./hfc hfc test
