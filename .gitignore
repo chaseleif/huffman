@@ -1,5 +1,11 @@
 hfc
+hfcncurses
 *.o*
+*.so*
 *.X*
 countsum
-test
+output
+test*
+*compressed*
+*restored*
+

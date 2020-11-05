@@ -1,8 +1,6 @@
 
 #include "common.h"
 
-//define toggles use of this file, can set in common.h or with gcc -D
-#ifdef _USECURSES
 #include <curses.h>
 #include <stdlib.h>
 #include <string.h>
@@ -303,11 +301,6 @@ void drawcompressionscreen() {
 	const unsigned long long insize = ftell(infile);
 	fseek(infile,0L,SEEK_SET);
 	fclose(infile);
-	//divide total size into 8 blocks.
-	pthread_t workerthreads[NUMTHREADS];
-	for (int i=0;i<NUMTHREADS;++i) {
-		pthread_create(&workerthreads[i],NULL,workercompress,(void*)w);
-	}
 	mvwprintw(w,TITLELINENUM+2,LEFTMARGIN,"Running compression, input = \"%s\" (%llu bytes), output = \"%s\", byte grouping size = %u, number passes = %u",compressinfile,insize,compressoutfile,NUMTHREADS,NUMPASSES);
 	const int topline = TITLELINENUM+4;
 	box(w,0,0);
@@ -339,7 +332,7 @@ int main(int argc, char **argv) {
 	notimeout(w,TRUE);
 	intrflush(w,TRUE);
 	curs_set(0); //disable cursor
-	else NUMPASSES=4;
+//	else NUMPASSES=4;
 
 	int menulevel = MAINMENU; //COMPRESSMENU, DECOMPRESSMENU
 	int highlight = setmenuoptions(menulevel);
@@ -369,4 +362,3 @@ int main(int argc, char **argv) {
 	endwin();
 	return 0;
 }
-#endif //_USECURSES

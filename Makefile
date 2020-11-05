@@ -1,20 +1,30 @@
-CC=gcc
-CFLAGS=-g -O0 -march=native -m64
-BINS=hfc
 
+# -O3 -march=native -m64
+
+CC=gcc
+CFLAGS=-Wall -g -O0
+BINS=hfc hfcncurses
 all: $(BINS)
 
-.PHONY: huffmantree.o
-huffmantree.o: huffmantree.c
-	$(CC) $(CFLAGS) -c $^
+.PHONY: libhfc.so
+libhfc.so: huffmantree.c
+	$(CC) $(CFLAGS) -fPIC -shared -o $@ $^ -lc
 
 .PHONY: menu.o
 menu.o: menu.c
 	$(CC) $(CFLAGS) -lncursesw -c $^
 
+.PHONY: driver.o
+driver.o: driver.c
+	$(CC) $(CFLAGS) -c $^
+
 .PHONY: hfc
-hfc: menu.o huffmantree.o
-	$(CC) $(CFLAGS) -o $@ $^ -lncursesw
+hfc: driver.o libhfc.so
+	$(CC) $(CFLAGS) -o $@ $^ -L. -lhfc
+
+.PHONY: hfcncurses
+hfcncurses: menu.o libhfc.so
+	$(CC) $(CFLAGS) -lncursesw -o $@ $^ -L. -lhfc
 
 .PHONY: clean
 clean:
@@ -22,4 +32,14 @@ clean:
 
 .PHONY: test
 test: hfc
-	./hfc hfc test
+	make driver
+
+.PHONY: curses
+curses: hfcncurses
+	./hfcncurses
+
+.PHONY: driver
+driver: hfc
+	./hfc hfc test.hfc
+
+
