@@ -4,11 +4,14 @@
 #include "common.h"
 
 static inline void printusage(char *prog) {
-	fprintf(stderr,"This utility compresses files using Huffman encoding\n\tUsage: %s [-c/-d] infile [-o] outfile\n",prog);
-	fprintf(stderr,"\t-c\tcompress the file specified in the next word\n");
-	fprintf(stderr,"\t-d\tdecompress the file specified in the next word\n");
-	fprintf(stderr,"\t-o\toutput file location\n");
-	fprintf(stderr,"\t(must include -c or -d to specify operation, -o is optional but must immediately precede the output file name if used)\n");
+	fprintf(stderr,"###\n#   This utility compresses files using Huffman encoding\n#\tUsage: %s [-c/-d] infile [-o] outfile\n",prog);
+	fprintf(stderr,"#\t-c or -d is required to specify operation\n");
+	fprintf(stderr,"#\t-o is optional, but if used must immediately precede the output file name\n");
+	fprintf(stderr,"#\t-c\tdo compression\n");
+	fprintf(stderr,"#\t-d\tdo decompression\n");
+	fprintf(stderr,"#\t-v\tverbose (prints data structure infos)\n");
+	fprintf(stderr,"#\t-o\toutput file location\n");
+	fprintf(stderr,"#\tinput filename must precede the output filename (unless -o is used)\n###\n");
 }
 int main(int argc, char **argv) {
 	if (argc<4) {
@@ -18,13 +21,16 @@ int main(int argc, char **argv) {
 	char *infilename=NULL;
 	char *outfilename=NULL;
 	unsigned char action=0;
+	unsigned char doprint=0;
 	for (int i=1;i<argc;++i) {
 		if (argv[i][0]=='-') {
-			if ((argv[i][1]|0x20)=='c')
-				action=1; // compress
-			else if ((argv[i][1]|0x20)=='d')
-				action=2; // decompress
-			else if ((argv[i][1]|0x20)=='o') {
+			if ((argv[i][1]|0x20)=='c') // compress
+				action=1;
+			else if ((argv[i][1]|0x20)=='d') // decompress
+				action=2;
+			else if ((argv[i][1]|0x20)=='v') // verbose output
+				doprint=1;
+			else if ((argv[i][1]|0x20)=='o') { // next arg is the outputfilename
 				if (i==argc-1) {
 					printusage(argv[0]);
 					return 0;
@@ -36,7 +42,7 @@ int main(int argc, char **argv) {
 				return 0;
 			}
 		}
-		else if (!infilename)
+		else if (!infilename)  // input filename precedes output filename
 			infilename=argv[i];
 		else if (!outfilename)
 			outfilename=argv[i];
@@ -64,15 +70,16 @@ int main(int argc, char **argv) {
 	}
 	if (action==1) { // compress
 		printf("Compressing \"%s\", output file: \"%s\"\n",infilename,outfilename);
-		docompress(infile,outfile,1); // when last parameter is non-zero printing is enabled
-		clearhfcvars();
+		docompress(infile,outfile,doprint); // when last parameter is non-zero printing is enabled
 	}
 	else { // if action==2
 		printf("Decompressing \"%s\", output file: \"%s\"\n",infilename,outfilename);
-		dorestore(infile,outfile,1);
-		clearhfcvars();
+		dorestore(infile,outfile,doprint);
 	}
-	// seek to end of the files (the compression leaves the file pointer at the third byte)
+	// data structures are not cleared automatically so they can be accessed with the curses utility
+	clearhfcvars();
+	// seek to end of the files to ensure right size
+	// (the compression function leaves the output file pointer at the fourth byte)
 	fseek(outfile,0L,SEEK_END);
 	fseek(infile,0L,SEEK_END);
 	const unsigned long long insize = ftell(infile);

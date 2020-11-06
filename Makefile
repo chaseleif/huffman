@@ -1,8 +1,5 @@
-
-# -O3 -march=native -m64 -fstack-arrays -Wl-dead_strip
-
 CC=gcc
-CFLAGS=-Wall -g -O0
+CFLAGS=-Wall -O3 -march=native -m64
 BINS=hfc hfcncurses
 all: $(BINS)
 
@@ -10,13 +7,13 @@ all: $(BINS)
 libhfc.so: huffmantree.c
 	$(CC) $(CFLAGS) -fPIC -shared -o $@ $^ -lc
 
-.PHONY: menu.o
-menu.o: menu.c
-	$(CC) $(CFLAGS) -lncursesw -c $^
-
 .PHONY: driver.o
 driver.o: driver.c
 	$(CC) $(CFLAGS) -c $^
+
+.PHONY: menu.o
+menu.o: menu.c
+	$(CC) $(CFLAGS) -lncursesw -D_GNU_SOURCE -c $^
 
 .PHONY: hfc
 hfc: driver.o libhfc.so
@@ -24,7 +21,7 @@ hfc: driver.o libhfc.so
 
 .PHONY: hfcncurses
 hfcncurses: menu.o libhfc.so
-	$(CC) $(CFLAGS) -lncursesw -o $@ $^ -L. -lhfc
+	$(CC) $(CFLAGS) --enable-widec -lncursesw -D_GNU_SOURCE -o $@ $^ -L. -lhfc
 
 .PHONY: clean
 clean:
@@ -40,6 +37,7 @@ curses: hfcncurses
 
 .PHONY: driver
 driver: hfc
-	./hfc -c hfc -o test.hfc
+	./hfc -v -c hfc -o test.hfc
+	./hfc -v -d test.hfc -o hfc.restored
 
 

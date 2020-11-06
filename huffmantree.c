@@ -6,9 +6,7 @@
 typedef struct node node;
 typedef uint8_t byte;
 
-node *hfcroot=NULL;
-node **hfcheap=NULL;
-int uniquebytes;
+// Static functions ***********
 
 //print the huffman tree
 static void printhuffmantree(node *root) {
@@ -40,14 +38,6 @@ static void freehuffmantree(node *root) {
 		freehuffmantree(root->right);
 	}
 	free(root);
-}
-
-// free the data structures kept for display purposes
-void clearhfcvars() {
-	if (hfcheap) free(hfcheap);
-	if (hfcroot) freehuffmantree(hfcroot);
-	hfcheap=NULL;
-	hfcroot=NULL;
 }
 
 // called to get the number of bits needed to represent a number. (max return is 8)
@@ -321,7 +311,17 @@ static void recreatehuffmantree(node *insertnode) {
 		trav->left = insertnode;
 }
 
-// decompress infile and write outfile
+// Shared functions ***********
+
+// free the data structures kept for display purposes
+void clearhfcvars() {
+	if (hfcheap) free(hfcheap);
+	if (hfcroot) freehuffmantree(hfcroot);
+	hfcheap=NULL;
+	hfcroot=NULL;
+}
+
+// decompress infile and write outfile, doprints enables info printing
 void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	const int buffersize=4096;
 	byte buffer[buffersize];
@@ -399,7 +399,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	if (doprints) {
 		printf("Reconstructed huffman tree:\n");
 		printhuffmantree(hfcroot);
-		printf("Decompressing . . .\n");
+		printf("Decompressing . . . ");
 	}
 	while (ret) {
 		node *trav = hfcroot;
@@ -435,8 +435,10 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		fflush(outfile);
 	}
 	if (doprints)
-		printf("Decompression finished\n");
+		printf("finished\n");
 }
+
+// function to do the compression, pass in/out file pointers, a non-zero doprints enables info printing
 void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// buffer to read the file
 	const int buffersize=4096;
@@ -565,6 +567,9 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		printf("Generated encoding:\n");
 		printhuffmantree(hfcroot);
 		printf("Writing metadata . . .\n");
+		printf("\t8 bits for number of unique bytes (%d)\n",uniquebytes);
+		printf("\t8 bits for maximum tree depth (%u)\n",maxstringlength);
+		printf("\t8 bits for final bit position (written after completion of compression)\n");
 	}
 	// write decoding information to front of output file
 	byte writebuffer[buffersize];
@@ -624,11 +629,20 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			}
 		}
 		// get next maximum groupsize
-		if (doprints)
-			printf("from %d bytes remaining, processed a group of %u (each with string length %u)",bytesremaining,groupcount,maxstringlength);
+		if (doprints) {
+			printf("\t%u bit",groupbitsneeded);
+			if (groupbitsneeded!=1) printf("s");
+			printf(" to indicate a group size of %d byte",groupcount);
+			if (!groupcount)
+				printf("s\n");
+			else {
+				if (groupcount!=1)
+					printf("s, each of which have");
+				else printf(", this byte has");
+				printf(" 8 bits for value and a %u bit path\n",maxstringlength);
+			}
+		}
 		bytesremaining-=groupcount;
-		if (doprints)
-			printf(", %d left to process\n",bytesremaining);
 		// figure out maximum bits needed
 		groupbitsneeded=bitlength(bytesremaining);
 		// next group start is the current buffer position
@@ -643,8 +657,10 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// don't need the heap anymore
 //	free(minheap);
 	if (doprints) {
-		printf("Metadata written: %d bits\n",(bufferpos<<3)+(7-bitshmt));
-		printf("Compressing . . .\n");
+		printf("Metadata size = %d bytes + %d bit",bufferpos,7-bitshmt);
+		if (7-bitshmt!=1) printf("s");
+		printf(" = (%d bits)\n",(bufferpos<<3)+(7-bitshmt));
+		printf("Compressing . . . ");
 	}
 	while ((i=fread(buffer,sizeof(byte),buffersize,infile))>0) {
 		for (x=0;x<i;++x) {
@@ -676,6 +692,6 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	fseek(outfile,2,SEEK_SET);
 	fwrite(writebuffer,sizeof(byte),1,outfile);
 	fflush(outfile);
+	if (doprints) printf("finished\n");
 }
-
 
