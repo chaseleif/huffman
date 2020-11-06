@@ -69,7 +69,7 @@ static byte generateencoding(node *root,const int path,const int steps) {
 	}
 	// this is an internal node
 	byte leftdepth = generateencoding(root->left,(path<<1),steps+1);
-	byte rightdepth = generateencoding(root->right,(path<<1),steps+1);
+	byte rightdepth = generateencoding(root->right,(path<<1)+1,steps+1);
 	if (leftdepth>rightdepth) return leftdepth;
 	return rightdepth;
 }
@@ -119,6 +119,7 @@ static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
 				const int righti = (lefti==mini)?min2i:mini;
 				newroot->left = roots[mini];
 				newroot->right = roots[min2i];
+				newroot->strval=NULL;
 				newroot->count = roots[mini]->count+roots[min2i]->count;
 				roots[lefti] = newroot;
 				*rootslen = *rootslen-1;
@@ -161,6 +162,7 @@ static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
 		roots[*rootslen] = (node*)malloc(sizeof(node));
 		roots[*rootslen]->left = val1;
 		roots[*rootslen]->right = val2;
+		roots[*rootslen]->strval=NULL;
 		roots[*rootslen]->count = minval;
 		*rootslen=*rootslen+1; //increase number of roots
 		return 2; // added both vals as a new subtree
@@ -169,6 +171,7 @@ static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
 	node *newroot = (node*)malloc(sizeof(node));
 	newroot->right = roots[mini];
 	newroot->left = val1;
+	newroot->strval=NULL;
 	newroot->count = minval;
 	roots[mini] = newroot;
 	return 1; // added 1 val to an existing subtree
@@ -191,6 +194,7 @@ static void finalizehuffmantree(node **roots,int *rootslen,node *lastval) {
 		node *newroot = (node*)malloc(sizeof(node));
 		newroot->right = roots[mini];
 		newroot->left = lastval;
+		newroot->strval=NULL;
 		newroot->count = lastval->count + minval;
 		roots[mini] = newroot;
 	}
@@ -226,6 +230,7 @@ static void finalizehuffmantree(node **roots,int *rootslen,node *lastval) {
 		node *newroot = (node*)malloc(sizeof(node));
 		newroot->left = roots[mini];
 		newroot->right = roots[min2i];
+		newroot->strval=NULL;
 		newroot->count = roots[mini]->count+roots[min2i]->count;
 		roots[lefti] = newroot;
 		*rootslen = *rootslen-1;
@@ -235,28 +240,28 @@ static void finalizehuffmantree(node **roots,int *rootslen,node *lastval) {
 }
 // destructor for the Huffman tree built using this file.
 static void freehuffmantree(node *root) {
-	if (root->left) { // this is an internal node
-		freehuffmantree(root->left);
-		freehuffmantree(root->right);
+	if (root->strval) { // this is a leaf
+		free(root->strval);
 		free(root);
 	}
-	else { // this is a leaf
-		free(root->strval);
+	else { // this is an internal node
+		freehuffmantree(root->left);
+		freehuffmantree(root->right);
 		free(root);
 	}
 }
 //print the huffman tree
 static void printhuffmantree(node *root) {
-	if (root->left) { // internal node
-		printhuffmantree(root->left);
-		printhuffmantree(root->right);
-	}
-	else { // this is a leaf
+	if (root->strval) { // this is a leaf
 		if (strlen(root->strval)<10)
 			printf("0x%.2x: %.9s\t\t(count=%llu)",root->val,root->strval,root->count);
 		else
 			printf("0x%.2x: %s\t(count=%llu)",root->val,root->strval,root->count);
 		printf("\tbit count change = %lld\n",-1*(8-strlen(root->strval)*((long long int)root->count)));
+	}
+	else { // this is an internal node
+		printhuffmantree(root->left);
+		printhuffmantree(root->right);
 	}
 }
 static void recreatehuffmantree(node *root,node *insertnode) {
@@ -268,6 +273,7 @@ static void recreatehuffmantree(node *root,node *insertnode) {
 				node *newnode = (node*)malloc(sizeof(node));
 				newnode->right=NULL;
 				newnode->left=NULL;
+				newnode->strval=NULL;
 				trav->right=newnode;
 			}
 			trav=trav->right;
@@ -277,6 +283,7 @@ static void recreatehuffmantree(node *root,node *insertnode) {
 				node *newnode = (node*)malloc(sizeof(node));
 				newnode->right=NULL;
 				newnode->left=NULL;
+				newnode->strval=NULL;
 				trav->left=newnode;
 			}
 			trav=trav->left;
@@ -291,9 +298,11 @@ static void recreatehuffmantree(node *root,node *insertnode) {
 		trav->left = insertnode;
 }
 static void freedecodingtree(node *T) {
-	if (T->left) freedecodingtree(T->left);
-	if (T->right) freedecodingtree(T->right);
 	if (T->strval) free(T->strval);
+	else {
+		freedecodingtree(T->left);
+		freedecodingtree(T->right);
+	}
 	free(T);
 }
 static byte decodestring(node *root,unsigned char *path) {
@@ -321,6 +330,7 @@ void dorestore(FILE *infile,FILE *outfile) {
 	node *root = (node*)malloc(sizeof(node));
 	root->right=NULL;
 	root->left=NULL;
+	root->strval=NULL;
 	int bytesremaining=uniquebytes;
 	while (bytesremaining>0) {
 		int groupsize=0;
@@ -487,8 +497,7 @@ void docompress(FILE *infile,FILE *outfile) {
 	}
 
 	// build a Huffman tree
-	// we can have a maximum (if we only ever have 1 subtree) of ((uniquebytes+1)/2)+1 nodes
-	// allocate a list large enough for the maximum number of nodes, necessary nodes are dynamically allocated
+	// we can have a maximum (if we only ever have 1 subtree) of ((uniquebytes+1)/2)+1 roots
 	node **roots = (node**)malloc(sizeof(node*)*(((uniquebytes+1)>>1)+1));
 	int numroots=0;
 	i=0; // i counts the elements 'popped'
