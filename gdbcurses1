@@ -1,0 +1,1 @@
+tmux splitw -h -p 50 "gdbserver :12345 ./hfcncurses"

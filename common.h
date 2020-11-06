@@ -11,11 +11,6 @@ struct node {
 	char *strval;
 };
 
-// shared globals from huffmantree.c
-struct node *hfcroot=NULL;
-struct node **hfcheap=NULL;
-int uniquebytes;
-
 // huffmantree.c: libhfc.so
 // Shared functions ***********
 // free the data structures kept for display purposes

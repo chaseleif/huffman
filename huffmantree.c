@@ -6,6 +6,11 @@
 typedef struct node node;
 typedef uint8_t byte;
 
+// shared globals from huffmantree.c
+struct node *hfcroot=NULL;
+struct node **hfcheap=NULL;
+int uniquebytes;
+
 // Static functions ***********
 
 //print the huffman tree
@@ -472,6 +477,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			hfcheap[x] = (node*)malloc(sizeof(node));
 			hfcheap[x]->count=frequencies[i];
 			hfcheap[x]->val=i;
+			hfcheap[x]->left=NULL; hfcheap[x]->right=NULL; hfcheap[x]->strval=NULL;
 			ullbytes[i] = hfcheap[x]; //ullbytes[] can be referenced by actual value, used for direct indexing in compression
 			if (x) {
 				int z=x;
