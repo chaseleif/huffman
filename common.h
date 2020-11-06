@@ -3,16 +3,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
-struct ullbyte {
+struct node {
+	struct node *left;
+	struct node *right;
 	unsigned long long count;
 	uint8_t val;
 	char *strval;
-};
-struct node {
-	void *left;
-	void *right;
-	unsigned long long sum;
-	uint8_t vals;
 };
 
 //huffman.c: libhfc.so

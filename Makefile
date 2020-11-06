@@ -1,5 +1,5 @@
 
-# -O3 -march=native -m64
+# -O3 -march=native -m64 -fstack-arrays -Wl-dead_strip
 
 CC=gcc
 CFLAGS=-Wall -g -O0
