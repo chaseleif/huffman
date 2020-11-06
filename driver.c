@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 		fclose(infile);
 		return 0;
 	}
-	docompress(infile,outfile);
+	docompress(infile,outfile,1);
 	clearhfcvars();
 	fclose(infile);
 	fclose(outfile);
@@ -41,7 +41,8 @@ int main(int argc, char **argv) {
 	strcat(newfilename,".restored");
 	outfile = fopen(newfilename,"wb");
 	if (!outfile) { printf("unable to open %s\n",newfilename); fclose(infile); return 0; }
-	dorestore(infile,outfile);
+	dorestore(infile,outfile,1);
+	clearhfcvars();
 	fclose(infile);
 	fclose(outfile);
 	printf("Exiting program . . .\n");

@@ -12,8 +12,8 @@ struct node {
 };
 
 //huffman.c: libhfc.so
-void dorestore(FILE *infile,FILE *outfile);
-void docompress(FILE *infile,FILE *outfile);
+void dorestore(FILE *infile,FILE *outfile,const uint8_t doprints);
+void docompress(FILE *infile,FILE *outfile,const uint8_t doprints);
 void clearhfcvars();
 /*
 static inline void pushdownminheap(struct ullbyte **minheap,const int lasti);
