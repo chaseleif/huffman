@@ -13,11 +13,17 @@ int uniquebytes;
 //print the huffman tree
 static void printhuffmantree(node *root) {
 	if (root->strval) { // this is a leaf
-		if (strlen(root->strval)<10)
-			printf("0x%.2x: %.9s\t\t(count=%llu)",root->val,root->strval,root->count);
-		else
-			printf("0x%.2x: %s\t(count=%llu)",root->val,root->strval,root->count);
-		printf("\tbit count change = %lld\n",-1*(8-strlen(root->strval)*((long long int)root->count)));
+		// this node has a count (tree values will not have a count after building during decompression)
+		if (root->count) {
+			if (strlen(root->strval)<10)
+				printf("0x%.2x: %.9s\t\t(bit count=%llu)",root->val,root->strval,root->count);
+			else
+				printf("0x%.2x: %s\t(bit count=%llu)",root->val,root->strval,root->count);
+			if (root->count<1000) printf("\t");
+			printf("\tchange in bit count = %lld\n",(strlen(root->strval)*((long long int)root->count))-(8*(long long int)(root->count)));
+		}
+		// this tree is a result of reconstruction from metadata
+		else printf("0x%.2x: %s\n",root->val,root->strval);
 	}
 	else { // this is an internal node
 		printhuffmantree(root->left);
@@ -380,8 +386,6 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 					bitshmt=7;
 				}
 			}
-			if (doprints)
-				printf("Dictionary: val=%.2x, path=%s\n",newnode->val,newnode->strval);
 			// add the newnode to the hfcroot, uses the newnode->strval to place it in its path
 			recreatehuffmantree(newnode);
 		}
@@ -393,8 +397,9 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	byte writebuffer[buffersize];
 	int writepos=0;
 	if (doprints) {
-//		printhuffmantree(hfcroot);
-		printf("\nDecoding: ");
+		printf("Reconstructed huffman tree:\n");
+		printhuffmantree(hfcroot);
+		printf("Decompressing . . .\n");
 	}
 	while (ret) {
 		node *trav = hfcroot;
@@ -430,7 +435,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		fflush(outfile);
 	}
 	if (doprints)
-		printf("Wrote output file\n");
+		printf("Decompression finished\n");
 }
 void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// buffer to read the file
@@ -559,7 +564,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	if (doprints) {
 		printf("Generated encoding:\n");
 		printhuffmantree(hfcroot);
-		printf("Writing metadata . . .");
+		printf("Writing metadata . . .\n");
 	}
 	// write decoding information to front of output file
 	byte writebuffer[buffersize];
@@ -620,7 +625,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		}
 		// get next maximum groupsize
 		if (doprints)
-			printf("from %d bytes remaining, processed a group of %u (each with string length %u) ",bytesremaining,groupcount,maxstringlength);
+			printf("from %d bytes remaining, processed a group of %u (each with string length %u)",bytesremaining,groupcount,maxstringlength);
 		bytesremaining-=groupcount;
 		if (doprints)
 			printf(", %d left to process\n",bytesremaining);

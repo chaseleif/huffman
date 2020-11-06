@@ -40,6 +40,6 @@ curses: hfcncurses
 
 .PHONY: driver
 driver: hfc
-	./hfc hfc test.hfc
+	./hfc -c hfc -o test.hfc
 
 
