@@ -6,7 +6,7 @@
 typedef struct node node;
 typedef uint8_t byte;
 
-// shared globals from huffmantree.c
+// shared globals from huffmantree.c for visualizations
 struct node *hfcroot=NULL;
 struct node **hfcheap=NULL;
 int uniquebytes;

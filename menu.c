@@ -201,7 +201,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 							if (i) dobackspace(*highlight+MENUFIRSTLINE,(--i)+leftstop+strlen(menuoptions[*highlight]));
 							else flash();
 						}
-						else if (isalpha(usrinput) || usrinput=='/' || usrinput=='.' || usrinput=='~' || usrinput=='_' || isdigit(usrinput)) {
+						else if (isalpha(usrinput)||usrinput=='/'||usrinput=='.'||usrinput=='~'||usrinput=='-'||usrinput=='_'||isdigit(usrinput)) {
 							if (i<FILENAMELEN) {
 								waddch(stdscr,usrinput);
 								buffer[i++]=usrinput;
@@ -318,11 +318,27 @@ static inline void drawerrorandgetch(const int row,const int col,char *format1,c
 	wgetch(stdscr);
 	curs_set(0);
 }
-// display for the huffman tree
+static inline void drawtreeframe(unsigned char *firstrow,unsigned char *maxlevel,unsigned char *direction,unsigned char *action) {
+	wclear(stdscr);
+	wrefresh(stdscr);
+	int xlimit,ylimit;
+	getmaxyx(stdscr,ylimit,xlimit);
+	const int midpoint = (xlimit+1)>>1;
+	if (!maxlevel || direction) { // let's check our x and y
+		if (!maxlevel) { // this is the first run, let's find out our depth
+		}
+	}
+}
+// display for the huffman tree, calls drawtreeframe for each screen, handles input and position variables
 static void treescreen() {
+	unsigned char firstrow=0,maxlevel=0;
+	unsigned char direction=5; // numpad: 4=left, 8=up, 6=right, 2=down, 5=no movement
+	unsigned char action=0; // 1 = expand, ...
+	node *trav = hfcroot;
+	drawtreeframe(&firstrow,&maxlevel,&direction,&action);
 }
 // ncurses extended char chart -> http://melvilletheatre.com/articles/ncurses-extended-characters/index.html
-// compress screen
+// compress/decompress screen, do the action and show the in/out file name+size + amount of change
 void codecscreen(const unsigned char codec) {
 	wclear(stdscr);
 	wrefresh(stdscr);
@@ -377,7 +393,6 @@ void codecscreen(const unsigned char codec) {
 
 // main. draw / handle ncurses window, menus, driver for huffman.c
 int main(int argc, char **argv) {
-
 // init ncurses
 	setlocale(LC_ALL,"");
 	initscr();

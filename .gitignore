@@ -5,6 +5,7 @@ hfcncurses
 *.X*
 output
 test*
-*compressed*
-*restored*
-
+*compress*
+*restore*
+out.*
+*.hfc
