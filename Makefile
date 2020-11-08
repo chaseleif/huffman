@@ -1,6 +1,5 @@
-# -march=native -m64
 CC=gcc
-CFLAGS=-std=c99 -Wall -g -O0
+CFLAGS=-std=c99 -Wall -O3 -march=native -m64
 BINS=hfc hfcncurses
 all: $(BINS)
 

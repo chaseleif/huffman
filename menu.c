@@ -487,17 +487,7 @@ static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *h
 		}
 		return;
 	}
-	if (*printrow-*modifier>= ylimit-1) {
-		if (*printrow-*modifier == ylimit-1) {
-			if (*printcol>=numcols) return;
-		}
-	}
 	popanode(root->right,printrow,printcol,modifier,highlighttimer,leftstop,numcols,colwidth,ylimit);
-	if (*printrow-*modifier>= ylimit-1) {
-		if (*printrow-*modifier == ylimit-1) {
-			if (*printcol>=numcols) return;
-		}
-	}
 	popanode(root->left,printrow,printcol,modifier,highlighttimer,leftstop,numcols,colwidth,ylimit);
 }
 // display for the huffman tree, calls drawtreeframe for each screen, handles input and print positions
@@ -535,49 +525,58 @@ static void treescreen(const int callingmenu) {
 		// if it were to also include frequency (tree from compression)
 		// ("(134123)[0x00: "00"]",node->count,node->val,node->strval)
 		// put frequency at 6 digits, then we have the above length + 8.
-		// let's try value gap size of { (with frequencies) : 25, (without frequencies) : 20 }
+		// let's try value gap size of { (with frequencies) : 25, (without frequencies) : 22 }
 		// the screen should be divided in to regions.
 		const int numcols = (hfcroot->count)?(xlimit-2)/25 : (xlimit-2)/22;
 		const int colwidth = xlimit/numcols;
-		const int firstcol = (xlimit%colwidth)>>1; //first column position, half of the margin
-		const int finalmid = (((numvalues+numcols-1)/numcols)-(ylimit>>1))+1; // don't need to shift more than this amount.
+		int firstcol = (xlimit-(numcols*colwidth))>>1;
+		if (firstcol<2) firstcol=2;
 		const int numrows = (numvalues+numcols-1)/numcols;
 		int currentcol = 0;
 		int currentrow = 5+TITLELINENUM;
-		// dynamically center the row, shift up by modifier
+		// dynamically center the row by skipping modifier rows until the active row is visible
 		int modifier = 0;
-		if (activex>ylimit) {
-			modifier = activex - (activex-ylimit) - (ylimit>>1);
-			if (modifier>finalmid) modifier=finalmid;
-		}
-		else {
-			if (activex>=(ylimit>>1)) {
-				modifier = activex - (ylimit>>1);
-				if (modifier>finalmid) modifier=finalmid;
-			}
+		const int firstsplit=ylimit>>1;
+		const int lastsplit=numrows-(ylimit-1);
+		if (activex>=firstsplit) {// active row is beyond the top half of the screen
+			modifier = activex-(ylimit>>1);
 		}
 		// highlighted node is a combination of the activex and activey, compute the highlighted node's number now
-		int highlighttimer = (activex-2)*numcols + activey;
+		int highlighttimer = (activex-modifier-2)*numcols + activey;
 		// print node values
 		popanode(hfcroot,&currentrow,&currentcol,&modifier,&highlighttimer,firstcol,numcols,colwidth,ylimit);
 		refreshwithborder(stdscr,HFCBLKGRN);
 		int ch = wgetch(stdscr);
 		if (ch==KEY_HOME) activex=1;
-	//		else if (ch==A1) {  upleft
+		else if (ch==KEY_END) {
+			if (numvalues%numcols) {
+				activex=numrows+1;
+				activey=numvalues%numcols-1;
+			}
+			else { activex=numrows+1; activey=numcols-1; }
+		}
 		else if (ch==KEY_UP) {
 			if (activex>0) {
 				if (--activex==1) activey=0;
 			}
 		}
-	//		else if (ch==A3) { upright
-		else if (ch==KEY_RIGHT) { if (activey<numcols-1) ++activey; }
-	//		else if (ch==C3) { downright
+		else if (ch==KEY_RIGHT) {
+			const int lastcols = numvalues%numcols;
+			if (lastcols && activex==numrows+1) {
+				if (activey < lastcols-1) ++activey;
+			}
+			else if (activey<numcols-1) ++activey;
+		}
 		else if (ch==KEY_DOWN) {
 			if (activex<numrows) {
 				if (++activex==2) activey=0;
 			}
+			else if (activex==numrows) {
+				const int lastcols = numvalues%numcols;
+				if (!lastcols || (lastcols && activey<lastcols))
+					++activex;
+			}
 		}
-	//		else if (ch==C1) { downleft
 		else if (ch==KEY_LEFT) { if (activey>0) --activey; }
 		else if (ch==KEY_ENTER || ch=='\n') {
 			if (activex<2) {
