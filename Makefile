@@ -7,8 +7,6 @@ all: $(BINS)
 libhfc.so: huffmantree.c
 	$(CC) $(CFLAGS) -fPIC -shared -o $@ $^ -lc
 
-	$(CC) $(CFLAGS) -c $^
-
 driver.o: driver.c
 	$(CC) $(CFLAGS) -c $^
 
