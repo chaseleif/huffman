@@ -54,7 +54,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 void codecscreen(const unsigned char codec);
 
 // display for the huffman tree
-static void treescreen();
+static void treescreen(const int callingmenu);
 
 // the ncurses window ... using "stdscr" now
 //WINDOW *w;
@@ -104,7 +104,7 @@ static int setmenuoptions(const unsigned char menulevel) {
 		if (menulevel==MAINMENU) {
 			if (i==0) strcpy(menuoptions[i],"Compress\n");
 			else if (i==1) strcpy(menuoptions[i],"Decompress\n");
-			else if (i==2) strcpy(menuoptions[i],"View huffman tree\n");
+			else if (i==2) strcpy(menuoptions[i],"Huffman tree menu\n");
 			else if (i==3) {
 				if (!hfcroot)
 					strcpy(menuoptions[i],"Free compression data structures\n");
@@ -121,7 +121,7 @@ static int setmenuoptions(const unsigned char menulevel) {
 			{ strcpy(menuoptions[i],"Output file: "); concatwithparenthesis(menuoptions[i],compressoutfile); }
 			else if (i==2) sprintf(menuoptions[i],"Pass count: %u",NUMPASSES);
 			else if (i==3) strcpy(menuoptions[i],"Begin compression");
-			else if (i==4) strcpy(menuoptions[i],"View huffman tree\n");
+			else if (i==4) strcpy(menuoptions[i],"Huffman tree menu\n");
 			else if (i==5) strcpy(menuoptions[i],"Return to main menu");
 			else { menuoptions[i][0]='\0'; return 0; }
 		}
@@ -131,7 +131,7 @@ static int setmenuoptions(const unsigned char menulevel) {
 			else if (i==1)
 			{ strcpy(menuoptions[i],"Output file: "); concatwithparenthesis(menuoptions[i],decompressoutfile); }
 			else if (i==2) strcpy(menuoptions[i],"Begin decompression");
-			else if (i==3) strcpy(menuoptions[i],"View huffman tree\n");
+			else if (i==3) strcpy(menuoptions[i],"Huffman tree menu\n");
 			else if (i==4) strcpy(menuoptions[i],"Return to main menu");
 			else { menuoptions[i][0]='\0'; return 0; }
 		}
@@ -164,7 +164,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 					*highlight=setmenuoptions(DECOMPRESSMENU);
 				}
 				else if (*highlight==2) // tree screen
-					treescreen();
+					treescreen(MAINMENU);
 				else if (*highlight==3) {// clear datastructures
 					if (hfcroot) {
 						clearhfcvars();
@@ -289,7 +289,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 					refreshwithborder(stdscr,HFCBLKGRN);
 				}
 				else if (*highlight==3) { // compress: compress(), decompress: tree menu
-					if (*menulevel==DECOMPRESSMENU) treescreen();
+					if (*menulevel==DECOMPRESSMENU) treescreen(DECOMPRESSMENU);
 					else codecscreen(*menulevel);
 				}
 				else if (*highlight==4) { // compress: tree menu, decompress: return to main menu
@@ -297,7 +297,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 						*menulevel=MAINMENU;
 						*highlight=setmenuoptions(MAINMENU);
 					}
-					else treescreen();
+					else treescreen(COMPRESSMENU);
 				}
 				else { // compress: return to main menu
 					*menulevel=MAINMENU;
@@ -321,19 +321,23 @@ static inline void drawerrorandgetch(const int row,const int col,char *format1,c
 	wgetch(stdscr);
 	curs_set(0);
 }
-// get max depth of the huffman tree
-static unsigned char maxtreedepth(node *root) {
-	if (root->strval) return 0;
-	unsigned char lhs = maxtreedepth(root->left)+1;
-	unsigned char rhs = maxtreedepth(root->right)+1;
-	if (lhs<rhs) return rhs;
-	return lhs;
+// get element count from the huffman tree
+static int numberofbytes(node *root) {
+	if (root->strval) return 1;
+	int lhs = numberofbytes(root->left);
+	int rhs = numberofbytes(root->right);
+	return lhs+rhs;
 }
-static unsigned char loadatree() {
+static unsigned char loadatree(const int callingmenu) {
 	unsigned char selection=0;
 	const int menulinestart=TITLELINENUM+6;
 	char *subtitle = "Extract a tree from a file or return to the main menu";
-	char *loadtreemenu[4] = {"Set filename:","Load tree","View tree","Return to the main menu"};
+	char loadtreemenu[4][MAXSTRLEN] = {"Set filename:","Load tree","View tree","Return to the "};
+	switch (callingmenu) {
+		case MAINMENU: strcat(loadtreemenu[3],"main menu"); break;
+		case COMPRESSMENU: strcat(loadtreemenu[3],"compression menu"); break;
+		case DECOMPRESSMENU: strcat(loadtreemenu[3],"decompression menu"); break;
+	}
 	while (1) {
 		char treeloaded[20];
 		if (hfcroot) strcpy(treeloaded,"(Ready)");
@@ -346,7 +350,25 @@ static unsigned char loadatree() {
 		mvwprintw(stdscr,TITLELINENUM+2,leftstop,"%s",subtitle);
 		mvwprintw(stdscr,TITLELINENUM+3,leftstop,"%s",treeloaded);
 		for (int i=0;i<4;++i) {
-			if (i==selection) {
+			if (i==2) {
+				if (hfcroot) {
+					if (i==selection) {
+						printwithattrandcolor(stdscr,i+menulinestart,leftstop,A_STANDOUT,HFCWHTBLU,"%s",loadtreemenu[i]);
+					}
+					else {
+						printwithattrandcolor(stdscr,i+menulinestart,leftstop,A_DIM,HFCGRNBLK,"%s",loadtreemenu[i]); // A_DIM (dim)
+					}
+				}
+				else {
+					if (i==selection) {
+						printwithattrandcolor(stdscr,i+menulinestart,leftstop,A_DIM,HFCGRNBLK,"%s",loadtreemenu[i]);
+					}
+					else {
+						printwithattr(stdscr,i+menulinestart,leftstop,A_INVIS,"%s",loadtreemenu[i]);
+					}
+				}
+			}
+			else if (i==selection) {
 				printwithattr(stdscr,i+menulinestart,leftstop,A_STANDOUT,"%s",loadtreemenu[i]);
 			}
 			else mvwprintw(stdscr,i+menulinestart,leftstop,"%s",loadtreemenu[i]);
@@ -364,6 +386,7 @@ static unsigned char loadatree() {
 				if (!infile) {
 					wmove(stdscr,menulinestart+selection,leftstop);
 					wclrtoeol(stdscr);
+					refreshwithborder(stdscr,HFCBLKGRN);
 					drawerrorandgetch(menulinestart+selection,leftstop,"Unable to open file: %s",treefile,NULL,NULL);
 					continue;
 				}
@@ -422,56 +445,80 @@ LEFT	B2		RIGHT
 C1		DOWN	C3
 */
 // activex and y are the highlighted positions
-// activex: x=0 for the quit entry, x=1 for the root, x=2 for first children, ....
-// activey corresponds to the nodei
-static void popanode(node *root,int currentrow,int centercol,int nodei,unsigned char depth,unsigned char activex,unsigned char activey,int xlimit,int ylimit) {
-	if (currentrow>=xlimit)
+// activex: x=0 menu(free), x=1 menu(quit), x=2 is row zero of the element printing
+// activey corresponds to columns
+static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *highlighttimer,
+					const int leftstop,const int numcols,const int colwidth,const int ylimit) {
+	// value node
+	if (root->strval) {
+		if (*modifier>0) { // skip printing first rows
+			if (root->strval) {
+				*printcol = *printcol+1;
+				if (*printcol==numcols) {
+					*printcol=0;
+					*modifier = *modifier-1;
+				}
+				return;
+			}
+		}
+		// this is the highlight node
+		if (*highlighttimer==0) {
+			if (root->count) {
+				printwithattrandcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,A_STANDOUT,HFCWHTBLU,"(%llu) [0x%.2x: %s]",root->count,root->val,root->strval);
+			}
+			else {
+				printwithattrandcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,A_STANDOUT,HFCWHTBLU,"[0x%.2x: %s]",root->val,root->strval);
+			}
+		}
+		// non-highlighted value node
+		else {
+			if (root->count) {
+				printcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,HFCCYNBLK,"(%llu) [0x%.2x: %s]",root->count,root->val,root->strval);	
+			}
+			else {
+				printcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,HFCCYNBLK,"[0x%.2x: %s]",root->val,root->strval);
+			}
+		}
+		*highlighttimer = *highlighttimer-1;
+		*printcol = *printcol+1;
+		if (*printcol==numcols) {
+			*printrow = *printrow + 1;
+			*printcol = 0;
+		}
 		return;
-	const int firstchildthisrow = (1<<depth)-1;
-	const int numchildrenhalfrow = (1<<depth)>>1;
-	const int myrowposition = nodei-firstchildthisrow;
-	int mymidoffset = (myrowposition<numchildrenhalfrow)?(~((numchildrenhalfrow-myrowposition)<<3)):((myrowposition-numchildrenhalfrow)<<3)-1;
-	//highlight this node
-	if (activex>1 && depth==activex-2 && activey==myrowposition) {
-		// this is a value node
-		if (root->strval) {
-			printwithattrandcolor(stdscr,currentrow,centercol+mymidoffset,A_STANDOUT,HFCWHTBLU,"[0x%.2x: %s]",root->val,root->strval);
-			return;
-		}
-		setcolor(stdscr,HFCWHTBLU);
-		mvwprintw(stdscr,currentrow,centercol+mymidoffset,"%d",nodei);
-		unsetcolor(stdscr,HFCWHTBLU);
-		wattroff(stdscr,A_STANDOUT);
 	}
-	// non-highlighted node
-	else {
-		// this is a value node
-		if (root->strval) {
-			printcolor(stdscr,currentrow,centercol+mymidoffset,HFCCYNBLK,"[0x%.2x]",root->val);	
-			return;
+	if (*printrow-*modifier>= ylimit-1) {
+		if (*printrow-*modifier == ylimit-1) {
+			if (*printcol>=numcols) return;
 		}
-		printcolor(stdscr,currentrow,centercol+mymidoffset,HFCCYNBLK,"%d",nodei);
 	}
-	popanode(root->left,currentrow+2,centercol,(nodei<<1)+1,depth+1,activex,activey,xlimit,ylimit);
-	popanode(root->right,currentrow+2,centercol,(nodei<<1)+2,depth+1,activex,activey,xlimit,ylimit);
+	popanode(root->right,printrow,printcol,modifier,highlighttimer,leftstop,numcols,colwidth,ylimit);
+	if (*printrow-*modifier>= ylimit-1) {
+		if (*printrow-*modifier == ylimit-1) {
+			if (*printcol>=numcols) return;
+		}
+	}
+	popanode(root->left,printrow,printcol,modifier,highlighttimer,leftstop,numcols,colwidth,ylimit);
 }
-// display for the huffman tree, calls drawtreeframe for each screen, handles input and position variables
-static void treescreen() {
-	if (!hfcroot) { if (loadatree()) return; } // no tree.
+// display for the huffman tree, calls drawtreeframe for each screen, handles input and print positions
+// if no tree exists it directs the menu to loadatree() which can return here or the main menu
+static void treescreen(const int callingmenu) {
+	if (!hfcroot) { if (loadatree(callingmenu)) return; } // no tree.
 	unsigned char activey=0,activex=2;
-	const unsigned char maxlevel=maxtreedepth(hfcroot);
+	unsigned char numvalues=numberofbytes(hfcroot); // element count
 	while (1) {
 		wclear(stdscr);
-		const int leftstop=CENTERMARGIN;
+		wrefresh(stdscr);
+		// title display area
+		int leftstop=CENTERMARGIN;
 		printcolor(stdscr,TITLELINENUM,leftstop,HFCGRNBLK,"%s",titlebar);
 		const char *freeoption = "Free the huffman tree";
 		const char *exitoption = "Exit tree view";
 		int xlimit,ylimit;
 		getmaxyx(stdscr,ylimit,xlimit);
-		const int rowchildren = (activex==1)?1:1<<(activex-1); // max children of this row
-		// menu entries
+		// the two menu entries
 		if (activex==0) {
-			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (max level = %u, maxx=%d, maxy=%d)",freeoption,maxlevel,xlimit,ylimit);
+			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (num bytes = %d screen(maxx=%d, maxy=%d))",freeoption,numvalues,xlimit,ylimit);
 		}
 		else {
 			printcolor(stdscr,2+TITLELINENUM,leftstop,HFCGRNBLK,"%s",freeoption);
@@ -482,38 +529,66 @@ static void treescreen() {
 		else {
 			printcolor(stdscr,3+TITLELINENUM,leftstop,HFCGRNBLK,"%s",exitoption);
 		}
-		// have the tree draw itself using the limits
-		popanode(hfcroot,5+TITLELINENUM,ylimit<<1,0,0,activex,activey,ylimit,xlimit);
+		// we want to use the bottom rectangle to draw the tree values.
+		// ("[0x%.2x]",node->val) <- this is 6 chars
+		// ("[0x%.2x: %s]",node->val,node->strval) <- this is 8 chars + strlen(path), ~( 10-20 )
+		// if it were to also include frequency (tree from compression)
+		// ("(134123)[0x00: "00"]",node->count,node->val,node->strval)
+		// put frequency at 6 digits, then we have the above length + 8.
+		// let's try value gap size of { (with frequencies) : 25, (without frequencies) : 20 }
+		// the screen should be divided in to regions.
+		const int numcols = (hfcroot->count)?(xlimit-2)/25 : (xlimit-2)/22;
+		const int colwidth = xlimit/numcols;
+		const int firstcol = (xlimit%colwidth)>>1; //first column position, half of the margin
+		const int finalmid = (((numvalues+numcols-1)/numcols)-(ylimit>>1))+1; // don't need to shift more than this amount.
+		const int numrows = (numvalues+numcols-1)/numcols;
+		int currentcol = 0;
+		int currentrow = 5+TITLELINENUM;
+		// dynamically center the row, shift up by modifier
+		int modifier = 0;
+		if (activex>ylimit) {
+			modifier = activex - (activex-ylimit) - (ylimit>>1);
+			if (modifier>finalmid) modifier=finalmid;
+		}
+		else {
+			if (activex>=(ylimit>>1)) {
+				modifier = activex - (ylimit>>1);
+				if (modifier>finalmid) modifier=finalmid;
+			}
+		}
+		// highlighted node is a combination of the activex and activey, compute the highlighted node's number now
+		int highlighttimer = (activex-2)*numcols + activey;
+		// print node values
+		popanode(hfcroot,&currentrow,&currentcol,&modifier,&highlighttimer,firstcol,numcols,colwidth,ylimit);
 		refreshwithborder(stdscr,HFCBLKGRN);
 		int ch = wgetch(stdscr);
 		if (ch==KEY_HOME) activex=1;
 	//		else if (ch==A1) {  upleft
 		else if (ch==KEY_UP) {
 			if (activex>0) {
-				--activex;
-				if (activex<3) activey=0;
-				else if (activey&1) activey=(activey>>1)+1;
-				else activey=(activey>>1)+1;
+				if (--activex==1) activey=0;
 			}
 		}
 	//		else if (ch==A3) { upright
-		else if (ch==KEY_RIGHT) { if (activey<rowchildren) activey = activey+1; }
+		else if (ch==KEY_RIGHT) { if (activey<numcols-1) ++activey; }
 	//		else if (ch==C3) { downright
 		else if (ch==KEY_DOWN) {
-			if (activex<maxlevel) {
-				++activex;
-				if (!activey) activey=1;
-				else if (activey&1) activey<<=1;
-				else activey=(activey-1)<<1;
+			if (activex<numrows) {
+				if (++activex==2) activey=0;
 			}
 		}
 	//		else if (ch==C1) { downleft
-		else if (ch==KEY_LEFT) { if (activey>0) activey=activey-1; }
+		else if (ch==KEY_LEFT) { if (activey>0) --activey; }
 		else if (ch==KEY_ENTER || ch=='\n') {
 			if (activex<2) {
 				if (activex==0) {
 					clearhfcvars();
-					if (!loadatree()) continue;
+					if (!loadatree(callingmenu)) {
+						activey=0;
+						activex=2;
+						numvalues=numberofbytes(hfcroot); // element count
+						continue;
+					}
 				}
 				break;
 			}
@@ -572,8 +647,11 @@ void codecscreen(const unsigned char codec) {
 	if (outsize<insize) waddstr(stdscr,"decrease\n");
 	else waddstr(stdscr,"increase\n");
 	unsetcolor(stdscr,HFCGRNBLK);
+	printwithattrandcolor(stdscr,TITLELINENUM+8,leftstop,A_STANDOUT,HFCBLKGRN,"%s","Press the any key to continue . . . ");
+	curs_set(2);
 	refreshwithborder(stdscr,HFCBLKGRN);
 	wgetch(stdscr);
+	curs_set(0);
 }
 
 // main. draw / handle ncurses window, menus, driver for huffman.c
@@ -612,8 +690,17 @@ int main(int argc, char **argv) {
 		int i=0;
 		const int leftstop = CENTERMARGIN;
 		printcolor(stdscr,TITLELINENUM,leftstop,HFCGRNBLK,"%s",titlebar);
-		while (menuoptions[i][0]) {
-			if ((menuoptions[i][0]=='F' && menuoptions[i][1]=='r' && menuoptions[i][2]=='e') ||
+		while (menuoptions[i][0]!='\0') {
+			if (!hfcroot &&
+				((menulevel==COMPRESSMENU && i==4) || (menulevel==DECOMPRESSMENU && i==3))) { // tree menu option, no tree
+				if (i==highlight) {
+					printwithattrandcolor(stdscr,i+MENUFIRSTLINE,leftstop,A_DIM,HFCGRNBLK,"%s",menuoptions[i]);
+				}
+				else {
+					printwithattr(stdscr,i+MENUFIRSTLINE,leftstop,A_INVIS,"%s",menuoptions[i]);
+				}
+			}
+			else if ((menuoptions[i][0]=='F' && menuoptions[i][1]=='r' && menuoptions[i][2]=='e') ||
 				(menuoptions[i][0]=='*' && menuoptions[i][1]=='F' && menuoptions[i][2]=='r')) {
 				if (hfcroot) {
 					if (i==highlight) {
