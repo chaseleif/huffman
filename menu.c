@@ -323,19 +323,21 @@ static inline void drawerrorandgetch(const int row,const int col,char *format1,c
 }
 // get max depth of the huffman tree
 static unsigned char maxtreedepth(node *root) {
-	if (!root->left) return 1;
+	if (root->strval) return 0;
 	unsigned char lhs = maxtreedepth(root->left)+1;
 	unsigned char rhs = maxtreedepth(root->right)+1;
-	if (lhs>rhs) return lhs;
-	return rhs;
+	if (lhs<rhs) return rhs;
+	return lhs;
 }
 static unsigned char loadatree() {
 	unsigned char selection=0;
 	const int menulinestart=TITLELINENUM+6;
 	char *subtitle = "Extract a tree from a file or return to the main menu";
-	char treeloaded[20] = "(No tree loaded)";
 	char *loadtreemenu[4] = {"Set filename:","Load tree","View tree","Return to the main menu"};
 	while (1) {
+		char treeloaded[20];
+		if (hfcroot) strcpy(treeloaded,"(Ready)");
+		else strcpy(treeloaded,"(No tree loaded)");
 		wclear(stdscr);
 		wrefresh(stdscr);
 		int leftstop=CENTERMARGIN;
@@ -362,7 +364,7 @@ static unsigned char loadatree() {
 				if (!infile) {
 					wmove(stdscr,menulinestart+selection,leftstop);
 					wclrtoeol(stdscr);
-					drawerrorandgetch(menulinestart+selection,leftstop,"%s","Unable to open file","%s",treefile);
+					drawerrorandgetch(menulinestart+selection,leftstop,"Unable to open file: %s",treefile,NULL,NULL);
 					continue;
 				}
 				restorehuffmantree(infile);
@@ -452,7 +454,6 @@ static void popanode(node *root,int currentrow,int centercol,int nodei,unsigned 
 	}
 	popanode(root->left,currentrow+2,centercol,(nodei<<1)+1,depth+1,activex,activey,xlimit,ylimit);
 	popanode(root->right,currentrow+2,centercol,(nodei<<1)+2,depth+1,activex,activey,xlimit,ylimit);
-	wrefresh(stdscr);
 }
 // display for the huffman tree, calls drawtreeframe for each screen, handles input and position variables
 static void treescreen() {
@@ -510,8 +511,10 @@ static void treescreen() {
 		else if (ch==KEY_LEFT) { if (activey>0) activey=activey-1; }
 		else if (ch==KEY_ENTER || ch=='\n') {
 			if (activex<2) {
-				if (activex==0)
+				if (activex==0) {
 					clearhfcvars();
+					if (!loadatree()) continue;
+				}
 				break;
 			}
 		}
