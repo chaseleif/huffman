@@ -15,6 +15,8 @@ struct node {
 // Shared functions ***********
 // free the data structures kept for display purposes
 void clearhfcvars();
+// restore just the huffman tree
+void restorehuffmantree(FILE *infile);
 // decompress infile and write to outfile, doprints enables data structure printf statements
 void dorestore(FILE *infile,FILE *outfile,const uint8_t doprints);
 // compress infile and write to outfile, doprints enables data structure printf statements

@@ -326,6 +326,77 @@ void clearhfcvars() {
 	hfcroot=NULL;
 }
 
+// just restore the huffman tree from a file
+void restorehuffmantree(FILE *infile) {
+	const int buffersize=4096;
+	byte buffer[buffersize];
+	//fill the buffer
+	int ret = fread(buffer,sizeof(byte),buffersize,infile);
+	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
+	// (global int so it can be returned for visualizations)
+	uniquebytes = ((unsigned int)buffer[0])+1;
+	// second byte is maximum depth, it is the current depth of values we read
+	unsigned int depth = buffer[1];
+	// third byte is for the EOF
+	int bufferpos=3;
+	int bitshmt=7;
+	if (hfcroot) freehuffmantree(hfcroot);
+	hfcroot = (node*)malloc(sizeof(node));
+	hfcroot->right=NULL;
+	hfcroot->left=NULL;
+	hfcroot->strval=NULL;
+	hfcroot->count=0;
+	int bytesremaining=uniquebytes;
+	while (bytesremaining>0) {
+		int groupsize=0;
+		int groupbits = bitlength(bytesremaining);
+		for (int x=groupbits-1;x>=0;--x) {
+			groupsize|=((buffer[bufferpos]>>bitshmt)&1)<<x;
+			if (--bitshmt<0) {
+				if (++bufferpos>=ret) {
+					ret=fread(buffer,sizeof(byte),buffersize,infile);
+					bufferpos=0;
+				}
+				bitshmt=7;
+			}
+		}
+		// for each byte in this depth group
+		for (int x=1;x<=groupsize;++x) {
+			node *newnode=(node*)malloc(sizeof(node));
+			newnode->val=0;
+			newnode->count=0;
+			// get the 8 bit value.
+			for (int i=7;i>=0;--i) {
+				newnode->val|=((buffer[bufferpos]>>bitshmt)&1)<<i;
+				if (--bitshmt<0) {
+					if (++bufferpos>=ret) {
+						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						bufferpos=0;
+					}
+					bitshmt=7;
+				}
+			}
+			// get the path
+			newnode->strval = (char*)malloc(sizeof(char)*(depth+1));
+			newnode->strval[depth]='\0';
+			for (int i=0;i<depth;++i) {
+				newnode->strval[i]=((buffer[bufferpos]>>bitshmt)&1)+'0';
+				if (--bitshmt<0) {
+					if (++bufferpos>=ret) {
+						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						bufferpos=0;
+					}
+					bitshmt=7;
+				}
+			}
+			// add the newnode to the hfcroot, uses the newnode->strval to place it in its path
+			recreatehuffmantree(newnode);
+		}
+		bytesremaining-=groupsize;
+		--depth;
+	}
+	// hfcroot is now the same huffman tree the file was compressed with (minus the count)
+}
 // decompress infile and write outfile, doprints enables info printing
 void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	const int buffersize=4096;

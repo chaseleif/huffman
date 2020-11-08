@@ -10,6 +10,9 @@ libhfc.so: huffmantree.c
 
 	$(CC) $(CFLAGS) -c $^
 
+driver.o: driver.c
+	$(CC) $(CFLAGS) -c $^
+
 menu.o: menu.c
 	$(CC) $(CFLAGS) -lncursesw -D_GNU_SOURCE -c $^
 
