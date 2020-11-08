@@ -439,11 +439,6 @@ static unsigned char loadatree(const int callingmenu) {
 	}
 	return 1;
 }
-/*keypad
-A1		UP		A3
-LEFT	B2		RIGHT
-C1		DOWN	C3
-*/
 // activex and y are the highlighted positions
 // activex: x=0 menu(free), x=1 menu(quit), x=2 is row zero of the element printing
 // activey corresponds to columns
@@ -537,9 +532,8 @@ static void treescreen(const int callingmenu) {
 		// dynamically center the row by skipping modifier rows until the active row is visible
 		int modifier = 0;
 		const int firstsplit=ylimit>>1;
-		const int lastsplit=numrows-(ylimit-1);
 		if (activex>=firstsplit) {// active row is beyond the top half of the screen
-			modifier = activex-(ylimit>>1);
+			modifier = activex-firstsplit;
 		}
 		// highlighted node is a combination of the activex and activey, compute the highlighted node's number now
 		int highlighttimer = (activex-modifier-2)*numcols + activey;

@@ -78,8 +78,7 @@ int main(int argc, char **argv) {
 	}
 	// data structures are not cleared automatically so they can be accessed with the curses utility
 	clearhfcvars();
-	// seek to end of the files to ensure right size
-	// (the compression function leaves the output file pointer at the fourth byte)
+	// seek to end of the files to get the size, outfile will not point to the end after compression
 	fseek(outfile,0L,SEEK_END);
 	fseek(infile,0L,SEEK_END);
 	const unsigned long long insize = ftell(infile);

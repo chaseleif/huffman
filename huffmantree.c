@@ -3,6 +3,8 @@
 #include <string.h>
 #include "common.h"
 
+#define BYTEBUFSIZE 4096
+
 typedef struct node node;
 typedef uint8_t byte;
 
@@ -328,10 +330,9 @@ void clearhfcvars() {
 
 // just restore the huffman tree from a file
 void restorehuffmantree(FILE *infile) {
-	const int buffersize=4096;
-	byte buffer[buffersize];
+	byte buffer[BYTEBUFSIZE];
 	//fill the buffer
-	int ret = fread(buffer,sizeof(byte),buffersize,infile);
+	int ret = fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
@@ -354,7 +355,7 @@ void restorehuffmantree(FILE *infile) {
 			groupsize|=((buffer[bufferpos]>>bitshmt)&1)<<x;
 			if (--bitshmt<0) {
 				if (++bufferpos>=ret) {
-					ret=fread(buffer,sizeof(byte),buffersize,infile);
+					ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 					bufferpos=0;
 				}
 				bitshmt=7;
@@ -370,7 +371,7 @@ void restorehuffmantree(FILE *infile) {
 				newnode->val|=((buffer[bufferpos]>>bitshmt)&1)<<i;
 				if (--bitshmt<0) {
 					if (++bufferpos>=ret) {
-						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 						bufferpos=0;
 					}
 					bitshmt=7;
@@ -383,7 +384,7 @@ void restorehuffmantree(FILE *infile) {
 				newnode->strval[i]=((buffer[bufferpos]>>bitshmt)&1)+'0';
 				if (--bitshmt<0) {
 					if (++bufferpos>=ret) {
-						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 						bufferpos=0;
 					}
 					bitshmt=7;
@@ -399,10 +400,9 @@ void restorehuffmantree(FILE *infile) {
 }
 // decompress infile and write outfile, doprints enables info printing
 void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
-	const int buffersize=4096;
-	byte buffer[buffersize];
+	byte buffer[BYTEBUFSIZE];
 	//fill the buffer
-	int ret = fread(buffer,sizeof(byte),buffersize,infile);
+	int ret = fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
@@ -427,7 +427,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 			groupsize|=((buffer[bufferpos]>>bitshmt)&1)<<x;
 			if (--bitshmt<0) {
 				if (++bufferpos>=ret) {
-					ret=fread(buffer,sizeof(byte),buffersize,infile);
+					ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 					bufferpos=0;
 				}
 				bitshmt=7;
@@ -443,7 +443,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 				newnode->val|=((buffer[bufferpos]>>bitshmt)&1)<<i;
 				if (--bitshmt<0) {
 					if (++bufferpos>=ret) {
-						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 						bufferpos=0;
 					}
 					bitshmt=7;
@@ -456,7 +456,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 				newnode->strval[i]=((buffer[bufferpos]>>bitshmt)&1)+'0';
 				if (--bitshmt<0) {
 					if (++bufferpos>=ret) {
-						ret=fread(buffer,sizeof(byte),buffersize,infile);
+						ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 						bufferpos=0;
 					}
 					bitshmt=7;
@@ -470,7 +470,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	}
 	// hfcroot is now the same huffman tree the file was compressed with (minus the count)
 	// the remainder of the file is data, read the file and traverse the tree to replace the values.
-	byte writebuffer[buffersize];
+	byte writebuffer[BYTEBUFSIZE];
 	int writepos=0;
 	if (doprints) {
 		printf("Reconstructed huffman tree:\n");
@@ -484,7 +484,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 			else trav=trav->left;
 			if (--bitshmt<0) {
 				if (++bufferpos>=ret) {
-					ret=fread(buffer,sizeof(byte),buffersize,infile);
+					ret=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 					if (!ret)
 						break;
 					bufferpos=0;
@@ -494,7 +494,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		}
 		if (!trav->left) { // we have arrived at a leaf node
 			writebuffer[writepos++]=trav->val;
-			if (writepos==buffersize) {
+			if (writepos==BYTEBUFSIZE) {
 				fwrite(writebuffer,sizeof(byte),writepos,outfile);
 				fflush(outfile);
 				writepos=0;
@@ -517,8 +517,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 // function to do the compression, pass in/out file pointers, a non-zero doprints enables info printing
 void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// buffer to read the file
-	const int buffersize=4096;
-	byte buffer[buffersize];
+	byte buffer[BYTEBUFSIZE];
 
 	// count the frequency of each 8-bit byte
 	unsigned long long frequencies[256]; //2^8, spot for each possible byte value
@@ -526,7 +525,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// read the file to get the frequency of bytes
 	int i, x;
 	uniquebytes=0; // global uniquebytes
-	while ((i=fread(buffer,sizeof(byte),buffersize,infile))>0) {
+	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
 			if (!frequencies[buffer[x]]) ++uniquebytes;
 			frequencies[buffer[x]]+=1;
@@ -649,7 +648,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		printf("\t8 bits for final bit position (written after completion of compression)\n");
 	}
 	// write decoding information to front of output file
-	byte writebuffer[buffersize];
+	byte writebuffer[BYTEBUFSIZE];
 	// first byte = count of unique bytes, <=256 (count from zero as one so 256 can fit into 255)
 	writebuffer[0] = uniquebytes-1;
 	// second byte = the maxdepth (maximum encoding string length)
@@ -739,9 +738,9 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		printf(" = (%d bits)\n",(bufferpos<<3)+(7-bitshmt));
 		printf("Compressing . . . ");
 	}
-	while ((i=fread(buffer,sizeof(byte),buffersize,infile))>0) {
+	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
-			byte flushbuffer = (bufferpos+16>=buffersize)?1:0; //flush the write buffer at the next byte alignment
+			byte flushbuffer = (bufferpos+16>=BYTEBUFSIZE)?1:0; //flush the write buffer at the next byte alignment
 			for (int z=0;ullbytes[buffer[x]]->strval[z]!='\0';++z) {
 				writebuffer[bufferpos] |= (ullbytes[buffer[x]]->strval[z]-'0')<<bitshmt;
 				if (--bitshmt<0) {
