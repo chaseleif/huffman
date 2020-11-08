@@ -674,7 +674,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	if (bitshmt<0) { bitshmt+=8; writebuffer[++bufferpos]=0; }
 	// for all unique bytes
 	while (bytesremaining>0) {
-		byte groupcount = 0;
+		int groupcount = 0; // worst case the group has 256 ...
 		//for each byte + encoding . . .
 		for (i=0;i<uniquebytes;++i) {
 			// group by lengths/level
