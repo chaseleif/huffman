@@ -21,13 +21,13 @@ static void printhuffmantree(node *root) {
 		// this node has a count (tree values will not have a count after building during decompression)
 		if (root->count) {
 			if (strlen(root->strval)<10)
-				printf("0x%.2x: %.9s\t\t(bit count=%llu)",root->val,root->strval,root->count);
+				printf("0x%.2x: %.9s\t\t(byte count=%llu)",root->val,root->strval,root->count);
 			else
-				printf("0x%.2x: %s\t(bit count=%llu)",root->val,root->strval,root->count);
+				printf("0x%.2x: %s\t(byte count=%llu)",root->val,root->strval,root->count);
 			if (root->count<1000) printf("\t");
 			printf("\tchange in bit count = %lld\n",(strlen(root->strval)*((long long int)root->count))-(8*(long long int)(root->count)));
 		}
-		// this tree is a result of reconstruction from metadata
+		// this tree is a result of reconstruction from metadata (no frequency info)
 		else printf("0x%.2x: %s\n",root->val,root->strval);
 	}
 	else { // this is an internal node
@@ -525,6 +525,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// read the file to get the frequency of bytes
 	int i, x;
 	uniquebytes=0; // global uniquebytes
+
 	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
 			if (!frequencies[buffer[x]]) ++uniquebytes;

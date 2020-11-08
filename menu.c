@@ -431,13 +431,14 @@ static unsigned char loadatree(const int callingmenu) {
 	}
 	return 1;
 }
-// activex and y are the highlighted positions
+// activex and y represent the highlighted positions
 // activex: x=0 menu(free), x=1 menu(quit), x=2 is row zero of the element printing
-// activey corresponds to columns
+// the highlighted node is set from activex and y as a countdown, when highlighttimer reaches zero we are at the highlight node
 static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *highlighttimer,
 					const int leftstop,const int numcols,const int colwidth,const int ylimit) {
+	// can't print any more rows
 	if (*printrow>ylimit) return;
-	// value node
+	// value node, print and return
 	if (root->strval) {
 		if (*modifier>0) { // skip printing first rows to do window frame 'movement'
 			if (root->strval) {
@@ -457,6 +458,7 @@ static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *h
 			else {
 				printwithattrandcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,A_STANDOUT,HFCWHTBLU,"[0x%.2x: %s]",root->val,root->strval);
 			}
+			*highlighttimer=-1;
 		}
 		// non-highlighted value node
 		else {
@@ -466,8 +468,9 @@ static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *h
 			else {
 				printcolor(stdscr,*printrow,leftstop+(*printcol)*colwidth,HFCCYNBLK,"[0x%.2x: %s]",root->val,root->strval);
 			}
+			if (*highlighttimer>0)
+				*highlighttimer = *highlighttimer-1;
 		}
-		*highlighttimer = *highlighttimer-1;
 		*printcol = *printcol+1;
 		if (*printcol==numcols) {
 			*printrow = *printrow + 1;
@@ -494,7 +497,7 @@ static void treescreen(const int callingmenu) {
 		getmaxyx(stdscr,ylimit,xlimit);
 		// the two menu entries
 		if (activex==0) {
-			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (num bytes = %d screen(maxx=%d, maxy=%d))",freeoption,uniquebytes,xlimit,ylimit);
+			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (num byte nodes = %d)",freeoption,uniquebytes);
 		}
 		else {
 			printcolor(stdscr,2+TITLELINENUM,leftstop,HFCGRNBLK,"%s",freeoption);
@@ -526,7 +529,7 @@ static void treescreen(const int callingmenu) {
 		if (activex>=firstsplit) {// active row is beyond the top half of the screen
 			modifier = activex-firstsplit;
 		}
-		// we are skipping lines
+		// we are skipping lines. setting the lockrow locks the modifier, resetting the lockrow allows window resizing.
 		if (modifier) {
 			// if the remaining rows (minus modifier)
 			// is less than the ylimit - current row
@@ -552,7 +555,7 @@ static void treescreen(const int callingmenu) {
 				activey=uniquebytes%numcols-1;
 			}
 			else { activex=numrows+1; activey=numcols-1; }
-			//fast forward
+			// copied the row modifier logic from above to do a fast forward
 			if (!lockrow) {
 				while (oldactivex++<activex) {
 					if (oldactivex>=firstsplit) {
