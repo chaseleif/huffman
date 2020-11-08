@@ -321,13 +321,6 @@ static inline void drawerrorandgetch(const int row,const int col,char *format1,c
 	wgetch(stdscr);
 	curs_set(0);
 }
-// get element count from the huffman tree
-static int numberofbytes(node *root) {
-	if (root->strval) return 1;
-	int lhs = numberofbytes(root->left);
-	int rhs = numberofbytes(root->right);
-	return lhs+rhs;
-}
 static unsigned char loadatree(const int callingmenu) {
 	unsigned char selection=0;
 	const int menulinestart=TITLELINENUM+6;
@@ -343,7 +336,6 @@ static unsigned char loadatree(const int callingmenu) {
 		if (hfcroot) strcpy(treeloaded,"(Ready)");
 		else strcpy(treeloaded,"(No tree loaded)");
 		wclear(stdscr);
-		wrefresh(stdscr);
 		int leftstop=CENTERMARGIN;
 		setcolor(stdscr,HFCGRNBLK);
 		mvwprintw(stdscr,TITLELINENUM,leftstop,"%s",titlebar);
@@ -444,9 +436,10 @@ static unsigned char loadatree(const int callingmenu) {
 // activey corresponds to columns
 static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *highlighttimer,
 					const int leftstop,const int numcols,const int colwidth,const int ylimit) {
+	if (*printrow>ylimit) return;
 	// value node
 	if (root->strval) {
-		if (*modifier>0) { // skip printing first rows
+		if (*modifier>0) { // skip printing first rows to do window frame 'movement'
 			if (root->strval) {
 				*printcol = *printcol+1;
 				if (*printcol==numcols) {
@@ -489,11 +482,9 @@ static void popanode(node *root,int *printrow,int *printcol,int *modifier,int *h
 // if no tree exists it directs the menu to loadatree() which can return here or the main menu
 static void treescreen(const int callingmenu) {
 	if (!hfcroot) { if (loadatree(callingmenu)) return; } // no tree.
-	unsigned char activey=0,activex=2;
-	unsigned char numvalues=numberofbytes(hfcroot); // element count
+	unsigned char lockrow=0,activey=0,activex=2;
 	while (1) {
 		wclear(stdscr);
-		wrefresh(stdscr);
 		// title display area
 		int leftstop=CENTERMARGIN;
 		printcolor(stdscr,TITLELINENUM,leftstop,HFCGRNBLK,"%s",titlebar);
@@ -503,7 +494,7 @@ static void treescreen(const int callingmenu) {
 		getmaxyx(stdscr,ylimit,xlimit);
 		// the two menu entries
 		if (activex==0) {
-			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (num bytes = %d screen(maxx=%d, maxy=%d))",freeoption,numvalues,xlimit,ylimit);
+			printwithattr(stdscr,2+TITLELINENUM,leftstop,A_STANDOUT,"%s (num bytes = %d screen(maxx=%d, maxy=%d))",freeoption,uniquebytes,xlimit,ylimit);
 		}
 		else {
 			printcolor(stdscr,2+TITLELINENUM,leftstop,HFCGRNBLK,"%s",freeoption);
@@ -526,7 +517,7 @@ static void treescreen(const int callingmenu) {
 		const int colwidth = xlimit/numcols;
 		int firstcol = (xlimit-(numcols*colwidth))>>1;
 		if (firstcol<2) firstcol=2;
-		const int numrows = (numvalues+numcols-1)/numcols;
+		const int numrows = (uniquebytes+numcols-1)/numcols;
 		int currentcol = 0;
 		int currentrow = 5+TITLELINENUM;
 		// dynamically center the row by skipping modifier rows until the active row is visible
@@ -535,6 +526,18 @@ static void treescreen(const int callingmenu) {
 		if (activex>=firstsplit) {// active row is beyond the top half of the screen
 			modifier = activex-firstsplit;
 		}
+		// we are skipping lines
+		if (modifier) {
+			// if the remaining rows (minus modifier)
+			// is less than the ylimit - current row
+			// then we have empty space, lock modifier at numrows-(
+			if ((numrows-modifier)+currentrow<ylimit-2) {
+				if (!lockrow) lockrow = modifier;
+				else modifier=lockrow;
+			}
+			else lockrow=0;
+		}
+		else lockrow=0;
 		// highlighted node is a combination of the activex and activey, compute the highlighted node's number now
 		int highlighttimer = (activex-modifier-2)*numcols + activey;
 		// print node values
@@ -543,11 +546,26 @@ static void treescreen(const int callingmenu) {
 		int ch = wgetch(stdscr);
 		if (ch==KEY_HOME) activex=1;
 		else if (ch==KEY_END) {
-			if (numvalues%numcols) {
+			unsigned char oldactivex=activex;
+			if (uniquebytes%numcols) {
 				activex=numrows+1;
-				activey=numvalues%numcols-1;
+				activey=uniquebytes%numcols-1;
 			}
 			else { activex=numrows+1; activey=numcols-1; }
+			//fast forward
+			if (!lockrow) {
+				while (oldactivex++<activex) {
+					if (oldactivex>=firstsplit) {
+						modifier = oldactivex-firstsplit;
+						if (modifier) {
+							if ((numrows-modifier)+5+TITLELINENUM<ylimit-2) { // current row is at the bottom of the screen now
+								lockrow=modifier;
+								break;
+							}
+						}
+					}
+				}
+			}
 		}
 		else if (ch==KEY_UP) {
 			if (activex>0) {
@@ -555,7 +573,7 @@ static void treescreen(const int callingmenu) {
 			}
 		}
 		else if (ch==KEY_RIGHT) {
-			const int lastcols = numvalues%numcols;
+			const int lastcols = uniquebytes%numcols;
 			if (lastcols && activex==numrows+1) {
 				if (activey < lastcols-1) ++activey;
 			}
@@ -566,7 +584,7 @@ static void treescreen(const int callingmenu) {
 				if (++activex==2) activey=0;
 			}
 			else if (activex==numrows) {
-				const int lastcols = numvalues%numcols;
+				const int lastcols = uniquebytes%numcols;
 				if (!lastcols || (lastcols && activey<lastcols))
 					++activex;
 			}
@@ -579,7 +597,6 @@ static void treescreen(const int callingmenu) {
 					if (!loadatree(callingmenu)) {
 						activey=0;
 						activex=2;
-						numvalues=numberofbytes(hfcroot); // element count
 						continue;
 					}
 				}
@@ -669,7 +686,6 @@ int main(int argc, char **argv) {
 	noecho();
 
 //	w = newwin(0,0,0,0); //new window, (height,width,starty,startx)
-
 	keypad(stdscr,TRUE);
 	notimeout(stdscr,TRUE);
 	intrflush(stdscr,TRUE);
