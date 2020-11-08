@@ -336,9 +336,21 @@ void restorehuffmantree(FILE *infile) {
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
+	if (uniquebytes>256 || uniquebytes < 1) {
+		printf("huffmantree.c: restorehuffmantree, bytes sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
+	if (depth < 2 || depth>=uniquebytes) {
+		printf("huffmantree.c: restorehuffmantree, depth sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	// third byte is for the EOF
+	if (buffer[2]>7) {
+		printf("huffmantree.c: restorehuffmantree, shmt sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	int bufferpos=3;
 	int bitshmt=7;
 	if (hfcroot) freehuffmantree(hfcroot);
@@ -398,6 +410,7 @@ void restorehuffmantree(FILE *infile) {
 	}
 	// hfcroot is now the same huffman tree the file was compressed with (minus the count)
 }
+
 // decompress infile and write outfile, doprints enables info printing
 void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	byte buffer[BYTEBUFSIZE];
@@ -406,11 +419,23 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
+	if (uniquebytes>256 || uniquebytes < 1) {
+		printf("huffmantree.c: dorestore, bytes sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
+	if (depth < 2 || depth>=uniquebytes) {
+		printf("huffmantree.c: dorestore, depth sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	// third byte is the final shmt, if this is 7 all bits will be the input data
 	// if the final shmt is less than 7, we only have (7-finalshmt) bits in the last byte
 	byte finalshmt = buffer[2];
+	if (finalshmt>7) {
+		printf("huffmantree.c: dorestore, shmt sanity check failed. This file was not compressed with this utility\n");
+		return;
+	}
 	int bufferpos=3;
 	int bitshmt=7;
 	if (hfcroot) freehuffmantree(hfcroot);
