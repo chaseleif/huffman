@@ -3,14 +3,16 @@
 #include <string.h>
 #include "common.h"
 
+// size of the byte buffer used for file IO, two buffers work are in use at the same time during compression and decompression
 #define BYTEBUFSIZE 4096
 
+// the node and 8 bit unsigned int
+// the node has { node*left,node*right,ull count,byte val,char* strval }
 typedef struct node node;
 typedef uint8_t byte;
 
-// shared globals from huffmantree.c for visualizations
+// shared globals for access for curses
 struct node *hfcroot=NULL;
-struct node **hfcheap=NULL;
 int uniquebytes;
 
 // Static functions ***********
@@ -83,7 +85,8 @@ static byte generateencoding(node *root,const int path,const int steps) {
 }
 
 // called after a root is swapped with the end, need to push the root down
-static inline void pushdownminheap(const int lasti) {
+// this just swaps values down until they are at the end or the heap is ok
+static inline void pushdownminheap(node **hfcheap,const int lasti) {
 	int z=0; // push the root down the heap
 	while ((z<<1)+1<=lasti) { //while this node has a child
 		const int childpos=(z<<1)+1; // first child
@@ -97,11 +100,10 @@ static inline void pushdownminheap(const int lasti) {
 				z=childpos;
 			}
 			else { // the right child is smaller than the left
-				const int rchild = childpos+1;
-				node *swap = hfcheap[rchild];
-				hfcheap[rchild]=hfcheap[z];
+				node *swap = hfcheap[childpos+1];
+				hfcheap[childpos+1]=hfcheap[z];
 				hfcheap[z]=swap;
-				z=rchild;
+				z=childpos+1;
 			}
 		}
 		else { // only have one child
@@ -285,6 +287,7 @@ static void finalizehuffmantree(node **roots,int *rootslen,node *lastval) {
 static void recreatehuffmantree(node *insertnode) {
 	node *trav = hfcroot;
 	int i=0;
+	// just find the node's spot, creating anything along the way
 	while (insertnode->strval[i+1]!='\0') {
 		if (insertnode->strval[i]=='1') {
 			if (!trav->right) {
@@ -322,13 +325,12 @@ static void recreatehuffmantree(node *insertnode) {
 
 // free the data structures kept for display purposes
 void clearhfcvars() {
-	if (hfcheap) free(hfcheap);
 	if (hfcroot) freehuffmantree(hfcroot);
-	hfcheap=NULL;
 	hfcroot=NULL;
 }
 
 // just restore the huffman tree from a file
+// this is a partial duplication of the decompress function, need to separate this part
 void restorehuffmantree(FILE *infile) {
 	byte buffer[BYTEBUFSIZE];
 	//fill the buffer
@@ -413,9 +415,14 @@ void restorehuffmantree(FILE *infile) {
 
 // decompress infile and write outfile, doprints enables info printing
 void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
+	// in buffer
 	byte buffer[BYTEBUFSIZE];
-	//fill the buffer
+	// fill the buffer to get initial values
 	int ret = fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
+	if (ret<8) {
+		printf("huffmantree.c: dorestore, initial input file read returned %d\n",ret);
+		return;
+	}
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
@@ -436,16 +443,20 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		printf("huffmantree.c: dorestore, shmt sanity check failed. This file was not compressed with this utility\n");
 		return;
 	}
+	// one iterator for byte and bit position for each buffer
 	int bufferpos=3;
 	int bitshmt=7;
+	// make a new root
 	if (hfcroot) freehuffmantree(hfcroot);
 	hfcroot = (node*)malloc(sizeof(node));
 	hfcroot->right=NULL;
 	hfcroot->left=NULL;
 	hfcroot->strval=NULL;
 	hfcroot->count=0;
+	// read the encodings from the file, creating /inserting nodes into the tree
 	int bytesremaining=uniquebytes;
 	while (bytesremaining>0) {
+		// get the number of bytes in the next group, all of each group have the same length path
 		int groupsize=0;
 		int groupbits = bitlength(bytesremaining);
 		for (int x=groupbits-1;x>=0;--x) {
@@ -490,6 +501,8 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 			// add the newnode to the hfcroot, uses the newnode->strval to place it in its path
 			recreatehuffmantree(newnode);
 		}
+		// reduce the remaining bytes by number processed and reduce the depth
+		// the bits needed for metadata decrease with the bytes remaining
 		bytesremaining-=groupsize;
 		--depth;
 	}
@@ -497,14 +510,19 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	// the remainder of the file is data, read the file and traverse the tree to replace the values.
 	byte writebuffer[BYTEBUFSIZE];
 	int writepos=0;
+	// print the huffman tree
 	if (doprints) {
 		printf("Reconstructed huffman tree:\n");
 		printhuffmantree(hfcroot);
 		printf("Decompressing . . . ");
 	}
+	// while we read the file
 	while (ret) {
+		// set a pointer to the root
 		node *trav = hfcroot;
-		while (!trav->strval) { // while we aren't at a node with a path
+		// this loop breaks when we are at a value node
+		while (!trav->strval) {
+			// move the pointer according to the input bit
 			if ((buffer[bufferpos]>>bitshmt)&1) trav=trav->right;
 			else trav=trav->left;
 			if (--bitshmt<0) {
@@ -517,7 +535,8 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 				bitshmt=7;
 			}
 		}
-		if (!trav->left) { // we have arrived at a leaf node
+		// we have arrived at a leaf node, put its value into the write buffer
+		if (!trav->left) {
 			writebuffer[writepos++]=trav->val;
 			if (writepos==BYTEBUFSIZE) {
 				fwrite(writebuffer,sizeof(byte),writepos,outfile);
@@ -525,7 +544,8 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 				writepos=0;
 			}
 		}
-		if (bufferpos==ret-1) { // last byte of the buffer, need to ensure this is not the last byte of the file
+		// must handle bit alignment at the final byte
+		if (bufferpos==ret-1) {
 			if (finalshmt<7 && feof(infile)) { // this is the file's last byte and it isn't a 'full' byte
 				if (bitshmt==finalshmt) break; // we have read all of the bits of the encoding
 			}
@@ -539,7 +559,8 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		printf("finished\n");
 }
 
-// function to do the compression, pass in/out file pointers, a non-zero doprints enables info printing
+// function to do the compression, pass in/out file pointers, a non-zero doprints (!= 2) enables info printing
+// a doprints == 2 prints to the output file formated output for use in making tree dot files (does not write compressed file)
 void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// buffer to read the file
 	byte buffer[BYTEBUFSIZE];
@@ -549,8 +570,9 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	memset(frequencies,0,sizeof(unsigned long long)*256);
 	// read the file to get the frequency of bytes
 	int i, x;
-	uniquebytes=0; // global uniquebytes
+	uniquebytes=0; // global uniquebytes, curses uses this
 
+	//fill out the frequencies array
 	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
 			if (!frequencies[buffer[x]]) ++uniquebytes;
@@ -561,7 +583,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 
 	// build the hfcheap
 	if (hfcroot) freehuffmantree(hfcroot);
-	hfcheap = (node**)malloc(sizeof(node*)*uniquebytes);
+	node **hfcheap = (node**)malloc(sizeof(node*)*uniquebytes);
 	// a side array to keep a static reference of every ullbyte so we don't need to search
 	node *ullbytes[256];
 	// for each element of frequency, add it to the hfcheap
@@ -576,6 +598,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			hfcheap[x]->left=NULL; hfcheap[x]->right=NULL; hfcheap[x]->strval=NULL;
 			ullbytes[i] = hfcheap[x]; //ullbytes[] can be referenced by actual value, used for direct indexing in compression
 			if (x) {
+				// z is our check / swap node. It travels up to the root to see if this value should go up
 				int z=x;
 				while (z && hfcheap[z>>1]->count>hfcheap[z]->count) {
 					const int parent = z>>1;
@@ -596,12 +619,12 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 					z=parent;
 				}
 			}
-			if (++x==uniquebytes) break; // no more unique values, no reason to check remaining frequencies
+			if (++x==uniquebytes) break; // no more unique values, no reason to check any remaining frequencies
 		}
 		++i;
 	}
 	// print the hfcheap
-	if (doprints) {
+	if (doprints==1) {
 		i=0;
 		x=2; //print level for newlines, so each line is a new level in the min heap
 		printf("Min heap row # count) [byte frequencies] -> (unique bytes=%d)\n1x#) ",uniquebytes);
@@ -616,23 +639,20 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			++i;
 		}
 	}
-	// build a Huffman tree
+	// build a Huffman tree with a dynamic array of disjoint trees
 	// we can have a maximum (if we only ever have 1 subtree) of ((uniquebytes+1)/2)+1 roots
 	node **roots = (node**)malloc(sizeof(node*)*(((uniquebytes+1)>>1)+1));
 	int numroots=0;
-	i=0; // i counts the elements 'popped'
-	x=uniquebytes-1; // the last index
+	i=0; // i is a processed element counter
+	// popped nodes are swapped with the last element and the length of the array decremented
+	// new roots are pushed down
+	x=uniquebytes-1; // the last index, x moves toward zero
 	while (i<uniquebytes) {
 		if (i+1==uniquebytes) { // the last value
 			finalizehuffmantree(roots,&numroots,hfcheap[0]);
 			break;
 		}
 		if (i+2==uniquebytes) { // two values
-			if (hfcheap[0]->count>hfcheap[1]->count) { // sanity check
-				node *swap = hfcheap[0];
-				hfcheap[0]=hfcheap[1];
-				hfcheap[1]=swap;
-			}
 			if (addtorootlist(roots,&numroots,hfcheap[0],hfcheap[1])==1)
 				finalizehuffmantree(roots,&numroots,hfcheap[1]);
 			else finalizehuffmantree(roots,&numroots,NULL);
@@ -642,14 +662,14 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		node *swap = hfcheap[0]; // swap the root with the end, reduce array size
 		hfcheap[0]=hfcheap[x];
 		hfcheap[x]=swap;
-		pushdownminheap(--x); // check the new root, we've taken the old 'root' out of bounds
+		pushdownminheap(hfcheap,--x); // check the new root, we've taken the old 'root' out of bounds
 		node *val2=hfcheap[0]; // the new root may not be consumed
-		// we also consumed the new root
+		// we made a new subtree
 		if (addtorootlist(roots,&numroots,val1,val2)==2) {
 			swap = hfcheap[0];
 			hfcheap[0]=hfcheap[x];
 			hfcheap[x]=swap;
-			pushdownminheap(--x); // made a new subtree
+			pushdownminheap(hfcheap,--x); // new root is ready, return number of elements popped
 			i+=2;
 		}
 		else ++i; // only took the root
@@ -665,7 +685,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	byte maxstringlength = generateencoding(hfcroot,0,0);
 
 	// printing every ullnode's strval prints the encoding
-	if (doprints) {
+	if (doprints==1) {
 		printf("Generated encoding:\n");
 		printhuffmantree(hfcroot);
 		printf("Writing metadata . . .\n");
@@ -682,28 +702,46 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// third byte is reserved for recording the final shmt amount, this covers cases where the last byte is not full
 	writebuffer[2]=0;
 	// for the rest of the metadata
-	// the (byte+encoding) will now be grouped according to encoding length
-	// length from maxlength, decremented by 1 each time.
-	// each group will use the number of bits for remaining size to indicate group count
+	// the (byte+encoding) will now be grouped according to encoding length from maxlength, decrementing by 1
+	// each group will use only the number of bits for remaining size to indicate group count
 	// each val will have 1 byte followed by strlen bits
 	int bytesremaining=uniquebytes;
 	byte groupbitsneeded = bitlength(bytesremaining);
-	// write group information in front of group data, need a marker for this position
+	// write group information in front of group data, keep a separate iterator and shmt for the group size spot
 	// 7 is first bit shmt, 0 is last
 	int groupbitshmt=7; // start shmt for groupsize. shmt is left shift with LOR into destination position. (decrementing to walk right) [7,6,5..,0]
 	int groupposstart=3; // pos i for groupsize
 	writebuffer[3]=0; // zero out buffers as we increment iterators
 	// actual write position, starts (needed bits) behind the group size position
 	int bufferpos=groupposstart; // track position for write buffer
+	// push the bitshmt away from the groupshmt
 	int bitshmt=groupbitshmt-groupbitsneeded; //bit position within bufferpos, where the group will be - the group's bits
 	if (bitshmt<0) { bitshmt+=8; writebuffer[++bufferpos]=0; }
+	// if doprints==2 we are sending the encoding into to a space separated file for dot file creation and quitting
+	if (doprints==2) {
+		bufferpos=0;
+	}
 	// for all unique bytes
 	while (bytesremaining>0) {
-		int groupcount = 0; // worst case the group has 256 ...
+		int groupcount = 0; // worst case the group has 256
 		//for each byte + encoding . . .
 		for (i=0;i<uniquebytes;++i) {
 			// group by lengths/level
 			if (strlen(hfcheap[i]->strval)!=maxstringlength) continue;
+			if (doprints==2) { // space separated val info for making dot files
+				// taking over the other buffer
+				char charbuf[512];
+				sprintf(charbuf,"%lld %.2x %s\n",hfcheap[i]->count,hfcheap[i]->val,hfcheap[i]->strval);
+				for (x=0;charbuf[x]!='\0';++x) {
+					writebuffer[bufferpos++] = charbuf[x];
+					if (bufferpos==BYTEBUFSIZE) {
+						bufferpos=0;
+						fwrite(writebuffer,sizeof(byte),BYTEBUFSIZE,outfile);
+					}
+				}
+				--bytesremaining;
+				continue;
+			}
 			++groupcount;
 			// store the original byte value
 			for (x=7;x>=0;--x) { // x is val pos shmt
@@ -722,6 +760,8 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 				}
 			}
 		}
+		// doprints==2 is just outputting the tree's encoding
+		if (doprints==2) { --maxstringlength; continue; }
 		// store the group size before the group's data, prepare this step for the next group
 		for (x=groupbitsneeded-1;x>=0;--x) { // x is groupsize shmt
 			writebuffer[groupposstart] |= ((groupcount>>x)&1)<<groupbitshmt;
@@ -731,7 +771,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			}
 		}
 		// get next maximum groupsize
-		if (doprints) {
+		if (doprints==1) {
 			printf("\t%u bit",groupbitsneeded);
 			if (groupbitsneeded!=1) printf("s");
 			printf(" to indicate a group size of %d byte",groupcount);
@@ -757,13 +797,20 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		--maxstringlength; // decrease next depth group
 	}
 	// don't need the heap anymore
-//	free(minheap);
-	if (doprints) {
+	free(hfcheap);
+	// we are only making output for dot creation
+	if (doprints==2) {
+		if (bufferpos) fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
+		freehuffmantree(hfcroot);
+		return;
+	}
+	if (doprints==1) {
 		printf("Metadata size = %d bytes + %d bit",bufferpos,7-bitshmt);
 		if (7-bitshmt!=1) printf("s");
 		printf(" = (%d bits)\n",(bufferpos<<3)+(7-bitshmt));
 		printf("Compressing . . . ");
 	}
+	// read the input file, use the bytes as keys for new encodings and write the output
 	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
 			byte flushbuffer = (bufferpos+16>=BYTEBUFSIZE)?1:0; //flush the write buffer at the next byte alignment
@@ -794,6 +841,6 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	fseek(outfile,2,SEEK_SET);
 	fwrite(writebuffer,sizeof(byte),1,outfile);
 	fflush(outfile);
-	if (doprints) printf("finished\n");
+	if (doprints==1) printf("finished\n");
 }
 

@@ -9,3 +9,4 @@ test*
 *restore*
 out.*
 *.hfc
+cupti*.txt*
