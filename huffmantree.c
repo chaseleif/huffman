@@ -26,7 +26,7 @@ static void printhuffmantree(node *root) {
 				printf("0x%.2x: %.9s\t\t(byte count=%llu)",root->val,root->strval,root->count);
 			else
 				printf("0x%.2x: %s\t(byte count=%llu)",root->val,root->strval,root->count);
-			if (root->count<1000) printf("\t");
+			if (root->count<100) printf("\t");
 			printf("\tchange in bit count = %lld\n",(strlen(root->strval)*((long long int)root->count))-(8*(long long int)(root->count)));
 		}
 		// this tree is a result of reconstruction from metadata (no frequency info)
