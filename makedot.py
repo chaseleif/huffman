@@ -35,7 +35,7 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
                 label = '1'
             else:
                 label = '0'
-            outfile.write(f'{parent} -> {i} [label = \"{label}\"];\n') #arrowType = "invempty",
+            outfile.write(f'{parent} -> {i} [label = \"{label}\", arrowhead = \"inv\"];\n')
             while True:
                 if parent in parentlist:
                     parentlist[parent]+=valnodes[i][0]
@@ -49,10 +49,13 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
             leftchild = (parent*2)+1
             rightchild = (parent*2)+2
             if leftchild not in valnodes:
-                outfile.write(f'{parent} -> {leftchild} [label = \"0\"];\n')
+                outfile.write(f'{parent} -> {leftchild} [label = \"0\", arrowhead = \"invempty\"];\n')
             if rightchild not in valnodes:
-                outfile.write(f'{parent} -> {rightchild} [label= \"1\"];\n')
-            nodedescriptions+=f'{parent} [label = \"{parentlist[parent]}\"];\n'
+                outfile.write(f'{parent} -> {rightchild} [label= \"1\", arrowhead = \"invempty\"];\n')
+            nodedescriptions+=f'{parent} [label = \"{parentlist[parent]}\"'
+            if parent==0:
+                nodedescriptions+=', xlabel = \"Huffman tree root\"'
+            nodedescriptions+='];\n'
         outfile.write(nodedescriptions + '}')
     return valnodes
 
