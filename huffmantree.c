@@ -8,7 +8,7 @@
 #define BYTEBUFSIZE 4096
 
 // whether to consider new huffman trees as part of the min heap during construction of the hfc tree
-#define INCLUDETREESINMINHEAP 0
+#define INCLUDETREESINMINHEAP 1
 
 // the node and 8 bit unsigned int
 // the node has { node*left,node*right,ull count,byte val,char* strval }

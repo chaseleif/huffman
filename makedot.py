@@ -11,6 +11,8 @@ if len(sys.argv)!=2:
 infilename = sys.argv[1]
 outfilename = infilename.split('.')[0] + '.dot'
 
+printsymbols = ['~','`','!','@','#','$','%','^','&','*','(',')',' ',',','.','<','>','?',';',':','[',']','{','}','|','-','_','=','+']
+
 def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
     valnodes = {}
     for line in open(infilename,'r'):
@@ -44,7 +46,13 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
                 if parent==0:
                     break
                 parent = int((parent-1)/2)
-            nodedescriptions+=str(i)+' [label = \"'+str(valnodes[i][0])+'\\n0x'+str(valnodes[i][1])+'\\n'+valnodes[i][2]+'\"];\n'
+            nodedescriptions+=str(i)+' [label = \"'+str(valnodes[i][0])+'\\n'
+            testchar = chr(int(valnodes[i][1], 16))
+            if testchar.isalnum() or testchar in printsymbols:
+                nodedescriptions+='\''+testchar+'\''
+            else:
+                nodedescriptions+='0x'+valnodes[i][1]
+            nodedescriptions+='\\n'+valnodes[i][2]+'\"];\n'
         for parent in parentlist:
             leftchild = (parent*2)+1
             rightchild = (parent*2)+2
