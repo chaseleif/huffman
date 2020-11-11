@@ -2,12 +2,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <locale.h>
-#include "common.h"
 #include <ncurses.h>
+#include "common.h"
 
+// node defined in "common.h", extern vars in huffmantree.c (libhfc)
 extern struct node *hfcroot;
 extern struct node **hfcheap;
 extern int uniquebytes;
+typedef struct node node;
 
 // macros need braces after a conditional because they encompass more than one 'line'
 // shorthand to enable / disable colors on a window
@@ -39,8 +41,6 @@ extern int uniquebytes;
 // max FILENAMELEN, where we stop the input
 #define FILENAMELEN 40
 
-// node defined in "common.h"
-typedef struct node node;
 
 // sets global menuoptions[][] strings, final string begins with '\0'.
 static int setmenuoptions(unsigned char menulevel);

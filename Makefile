@@ -31,4 +31,5 @@ curses: hfcncurses
 driver: hfc
 	./hfc -v -c hfc -o test.hfc
 	./hfc -v -d test.hfc -o hfc.restored
+	diff hfc hfc.restored
 

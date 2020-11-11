@@ -1,10 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+// structure and public function definitions
 #include "common.h"
 
 // size of the byte buffer used for file IO, two buffers work are in use at the same time during compression and decompression
 #define BYTEBUFSIZE 4096
+
+// whether to consider new huffman trees as part of the min heap during construction of the hfc tree
+#define INCLUDETREESINMINHEAP 0
 
 // the node and 8 bit unsigned int
 // the node has { node*left,node*right,ull count,byte val,char* strval }
@@ -12,7 +16,7 @@ typedef struct node node;
 typedef uint8_t byte;
 
 // shared globals for access for curses
-struct node *hfcroot=NULL;
+node *hfcroot=NULL;
 int uniquebytes;
 
 // Static functions ***********
@@ -121,83 +125,121 @@ static inline void pushdownminheap(node **hfcheap,const int lasti) {
 // either extends a subtree or creates a new subtree, rootslen is updated as needed
 // returns the number of nodes consumed (2 or 1)
 static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
-	int mini=-1; // mini==-1 when we make a new tree
-	unsigned long long minval=val1->count+val2->count; // minval will be the nodes sum
-	for (int i=0;i<*rootslen;++i) {
-		if (roots[i]->count+val1->count<minval) {
-			mini=i;
-			minval=roots[i]->count+val1->count;
+	int mini=-1;
+	unsigned long long minval;
+	// this define option skips readding new tree nodes to the min heap
+	if (!INCLUDETREESINMINHEAP) {
+		mini=-1; // mini==-1 when we make a new tree
+		minval=val1->count+val2->count; // minval will be the nodes sum
+		// check if adding val1 to another subtree is less than adding val1 to val2, is so we do that
+		for (int i=0;i<*rootslen;++i) {
+			if (roots[i]->count+val1->count<minval) {
+				mini=i;
+				minval=roots[i]->count+val1->count;
+			}
 		}
 	}
-/*
-// The logic below handles 'reinserting' nodes into the min heap
+// The logic below acts as if nodes were 'reinserted' into the min heap
 // Nodes with smaller values become the next candidate to either merge with val1 or merge with another node.
-// The file sizes I have seen in testing are slightly larger doing this.
-	int mini;
-	unsigned long long minval;
-	if (*rootslen) {
-		while (1) {
-			mini=0;
-			minval=roots[0]->count;
-			for (int i=1;i<*rootslen;++i) {
-				if (roots[i]->count<minval) {
-					mini=i;
-					minval=roots[i]->count;
-				}
+	else { //if (INCLUDETREESINMINHEAP) {
+		// we have exactly one tree
+		if (*rootslen==1) {
+			// adding the two nodes is less than the adding to the existing tree
+			if (val2->count<roots[0]->count) {
+				mini=-1;
+				minval=val1->count+val2->count;
 			}
-			//a subtree's value is less than val1, merge the subtrees first
-			if (minval<val1->count) {
-				int min2i=(mini==0)?1:0;
-				unsigned long long min2val = roots[min2i]->count;
-				for (int i=0;i<*rootslen;++i) {
-					if (i==mini || i==min2i) continue;
-					if (roots[i]->count<min2val) {
-						min2i=i;
-						min2val=roots[i]->count;
+			// add val1 to the existing tree
+			else {
+				mini=0;
+				minval=val1->count+roots[0]->count;
+			}
+		}
+		// we have at least 2 trees
+		else if (*rootslen) {
+			// check the count of the existing roots until we merge val1 somewhere
+			while (1) {
+				// if we keep merging trees we end up with 1 root left
+				// add val1 to tree or make a new tree with val1 and val2
+				if (*rootslen==1) {
+					if (val2->count<roots[0]->count) {
+						mini=-1;
+						minval=val1->count+val2->count;
+					}
+					else {
+						mini=0;
+						minval=val1->count+roots[0]->count;
+					}
+					break;
+				}
+				int min2i;
+				unsigned long long min2val;
+				// find lowest subtree value, first set the positions using the first two trees
+				if (roots[0]->count<=roots[1]->count) {
+					mini=0;
+					minval=roots[0]->count;
+					min2i = 1;
+					min2val = roots[1]->count;
+				}
+				else {
+					mini=1;
+					minval=roots[1]->count;
+					min2i = 0;
+					min2val = roots[0]->count;
+				}
+				if (*rootslen>2) {
+					// iterate from the third tree to the end
+					for (int i=2;i<*rootslen;++i) {
+						if (roots[i]->count<minval) {
+							min2i = mini;
+							min2val = minval;
+							mini=i;
+							minval=roots[i]->count;
+						}
+						else if (roots[i]->count<min2val) {
+							min2val = roots[i]->count;
+							min2i = i;
+						}
 					}
 				}
-				node *newroot = (node*)malloc(sizeof(node));
-				const int lefti = (mini<min2i)?mini:min2i;
-				const int righti = (lefti==mini)?min2i:mini;
-				newroot->left = roots[mini];
-				newroot->right = roots[min2i];
-				newroot->strval=NULL;
-				newroot->count = roots[mini]->count+roots[min2i]->count;
-				roots[lefti] = newroot;
-				*rootslen = *rootslen-1;
-				//if righti < rootslen there exists an unmerged node at [rootslen] that needs to swap with [righti]
-				if (righti<*rootslen) roots[righti] = roots[*rootslen];
-				if (*rootslen==1) {
+				// a subtree's value is less than val1
+				if (minval<val1->count) {
+					// the second tree count is higher than the val1, add the val1 to the first min tree (mini is set)
+					if (min2val>=val1->count) {
+						minval+=val1->count; // minval was set to the first tree's count, add val1's count and break
+						break;
+					}
+					// both of these trees are less than the first value's count, merge these trees and restart
+					node *newroot = (node*)malloc(sizeof(node));
+					const int lefti = (mini<min2i)?mini:min2i;
+					const int righti = (lefti==mini)?min2i:mini;
+					newroot->left = roots[mini];
+					newroot->right = roots[min2i];
+					newroot->strval=NULL;
+					newroot->count = minval+min2val;
+					roots[lefti] = newroot; // take over the left-most spot in the array
+					*rootslen = *rootslen-1; // decrease the array length
+					//if righti < rootslen there exists an unmerged node at [rootslen] that needs to swap with [righti]
+					if (righti<*rootslen) roots[righti] = roots[*rootslen];
+				}
+				// a subtree's value is less than val2, add val1 to the subtree
+				else if (minval<val2->count) {
+					minval+=val1->count;
+					break;
+				}
+				// no tree was less than val1
+				else {
 					mini=-1;
 					minval=val1->count+val2->count;
 					break;
 				}
 			}
-			else {
-				if (minval+val1->count>val1->count+val2->count) {
-					mini=-1;
-					minval=val1->count+val2->count;
-				}
-				else minval+=val1->count;
-				break;
-			}
 		}
-	}
-	else if (*rootslen==1) {
-		if (val2->count<roots[0]->count) {
+		else {
 			mini=-1;
 			minval=val1->count+val2->count;
 		}
-		else {
-			mini=0;
-			minval=val1->count+roots[0]->count;
-		}
 	}
-	else {
-		mini=-1;
-		minval=val1->count+val2->count;
-	}
-*/
 	// adding the next two values is less than adding to a tree
 	if (mini<0) {
 		// add a new subtree
@@ -335,22 +377,26 @@ void restorehuffmantree(FILE *infile) {
 	byte buffer[BYTEBUFSIZE];
 	//fill the buffer
 	int ret = fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
+	if (ret<8) {
+		printf("\n###\n# restorehuffmantree.c: restorehuffmantree, initial input file read returned %d !\n###\nError reading from input file stream\n",ret);
+		return;
+	}
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
 	if (uniquebytes>256 || uniquebytes < 1) {
-		printf("huffmantree.c: restorehuffmantree, bytes sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: restorehuffmantree, bytes sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
 	if (depth < 2 || depth>=uniquebytes) {
-		printf("huffmantree.c: restorehuffmantree, depth sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: restorehuffmantree, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	// third byte is for the EOF
 	if (buffer[2]>7) {
-		printf("huffmantree.c: restorehuffmantree, shmt sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: restorehuffmantree, shmt sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	int bufferpos=3;
@@ -420,27 +466,27 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	// fill the buffer to get initial values
 	int ret = fread(buffer,sizeof(byte),BYTEBUFSIZE,infile);
 	if (ret<8) {
-		printf("huffmantree.c: dorestore, initial input file read returned %d\n",ret);
+		printf("\n###\n# huffmantree.c: dorestore, initial input file read returned %d !\n###\nError reading from input file stream\n",ret);
 		return;
 	}
 	// first byte = count of unique bytes, <=256 (count from zero as one for this first count)
 	// (global int so it can be returned for visualizations)
 	uniquebytes = ((unsigned int)buffer[0])+1;
 	if (uniquebytes>256 || uniquebytes < 1) {
-		printf("huffmantree.c: dorestore, bytes sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: dorestore, bytes sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
 	if (depth < 2 || depth>=uniquebytes) {
-		printf("huffmantree.c: dorestore, depth sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: dorestore, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	// third byte is the final shmt, if this is 7 all bits will be the input data
 	// if the final shmt is less than 7, we only have (7-finalshmt) bits in the last byte
 	byte finalshmt = buffer[2];
 	if (finalshmt>7) {
-		printf("huffmantree.c: dorestore, shmt sanity check failed. This file was not compressed with this utility\n");
+		printf("\n###\n# huffmantree.c: dorestore, shmt sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
 	// one iterator for byte and bit position for each buffer
