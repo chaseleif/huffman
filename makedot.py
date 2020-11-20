@@ -2,14 +2,27 @@
 
 import sys
 
-if len(sys.argv)!=2:
+if len(sys.argv)!=2 and len(sys.argv)!=3:
     print('This utility creates a dot file from the HFC output')
     print('Usage:\tpython '+sys.argv[0]+' tree.nfo')
+    print('   or:\tpython '+sys.argv[0]+' tree.nfo rootnodename')
     print('A dot file with the same prefix will be created')
     exit(0)
 
 infilename = sys.argv[1]
 outfilename = infilename.split('.')[0] + '.dot'
+
+# don't print the valnode shape, enlarge the text
+# set to True to enable this, something else to disable
+# used this to make better images for squashed down graphs in docs
+bigtextnodevals = False
+
+'''
+graphviz docs say they take 72 points as an inch...
+portrait, 8.5x11, do 7.5x10 which gives .5" margin...
+should be W=540 x H=720, this gave me 10"x13.33" or 720x960 pix, and it cut off everything outside
+I just made smaller images using the -Gdpi flag
+'''
 
 printsymbols = ['~','`','!','@','#','$','%','^','&','*','(',')',' ',',','.','<','>','?',';',':','[',']','{','}','|','-','_','=','+']
 
@@ -28,7 +41,8 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
     parentlist = {}
     nodedescriptions = ''
     with open(outfilename,'w') as outfile:
-        outfile.write('digraph hufftree {\ngraph [ splines = \"line\", root = 0];\n')
+        outfile.write('digraph hufftree {\ngraph [ splines = \"line\", root = 0')
+        outfile.write('];\n')
         midnodes = {}
         for i in valnodes:
             parent = int((i-1)/2)
@@ -52,7 +66,10 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
                 nodedescriptions+='\''+testchar+'\''
             else:
                 nodedescriptions+='0x'+valnodes[i][1]
-            nodedescriptions+='\\n'+valnodes[i][2]+'\"];\n'
+            nodedescriptions+='\\n'+valnodes[i][2]+'\"'
+            if bigtextnodevals==True:
+                nodedescriptions+=', shape=\"none\", fontsize=24'
+            nodedescriptions+='];\n'
         for parent in parentlist:
             leftchild = (parent*2)+1
             rightchild = (parent*2)+2
@@ -62,7 +79,10 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
                 outfile.write(str(parent)+' -> '+str(rightchild)+' [label= \"1\", arrowhead = \"invempty\"];\n')
             nodedescriptions+=str(parent)+' [label = \"'+str(parentlist[parent])+'\"'
             if parent==0:
-                nodedescriptions+=', xlabel = \"Huffman tree root\"'
+                if len(sys.argv)==3:
+                    nodedescriptions+=', xlabel = \"'+sys.argv[2]+'\"'
+                else:
+                    nodedescriptions+=', xlabel = \"Huffman tree root\"'
             nodedescriptions+='];\n'
         outfile.write(nodedescriptions + '}')
     return valnodes
