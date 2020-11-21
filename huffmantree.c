@@ -633,39 +633,20 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// a side array to keep a static reference of every ullbyte so we don't need to search
 	node *ullbytes[256];
 	// for each element of frequency, add it to the hfcheap
-	x=0;
+	// creating nodes in reverse order so each addition is a new 'root' with the lowest index
+	x=uniquebytes-1;
 	i=0;
 	while (i<256) {
 		if (frequencies[i]) {
-			// adding new elements to the end of the heap and pushing up as needed
+			// adding new elements from right to left in the heap, pushing each new index down as needed
 			hfcheap[x] = (node*)malloc(sizeof(node));
 			hfcheap[x]->count=frequencies[i];
 			hfcheap[x]->val=i;
+			// initialize tree node vals
 			hfcheap[x]->left=NULL; hfcheap[x]->right=NULL; hfcheap[x]->strval=NULL;
 			ullbytes[i] = hfcheap[x]; //ullbytes[] can be referenced by actual value, used for direct indexing in compression
-			if (x) {
-				// z is our check / swap node. It travels up to the root to see if this value should go up
-				int z=x;
-				while (z && hfcheap[z>>1]->count>hfcheap[z]->count) {
-					const int parent = z>>1;
-					node *swap = hfcheap[parent];
-					hfcheap[parent] = hfcheap[z];
-					hfcheap[z] = swap;
-					//make sure the sibling follows the same conditions
-					if (z==x && z<<1==parent) z=-1; // z is the left child, though we have no right child yet
-					if (z<<1 == parent) ++z; // z is the left child, make sure the right child is ok
-					else --z; // z is the right child, check the left child
-					if (z>0) {
-						if (hfcheap[parent]->count>hfcheap[z]->count) {
-							swap = hfcheap[parent];
-							hfcheap[parent] = hfcheap[z];
-							hfcheap[z] = swap;
-						}
-					}
-					z=parent;
-				}
-			}
-			if (++x==uniquebytes) break; // no more unique values, no reason to check any remaining frequencies
+			pushdownminheap(hfcheap+x,uniquebytes-1-x);
+			if (--x<0) break; // no more unique values
 		}
 		++i;
 	}

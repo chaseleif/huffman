@@ -24,6 +24,8 @@ should be W=540 x H=720, this gave me 10"x13.33" or 720x960 pix, and it cut off 
 I just made smaller images using the -Gdpi flag
 '''
 
+printhex = True
+
 printsymbols = ['~','`','!','@','#','$','%','^','&','*','(',')',' ',',','.','<','>','?',';',':','[',']','{','}','|','-','_','=','+']
 
 def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
@@ -62,7 +64,7 @@ def makedotfile(infilename='tree.nfo',outfilename='out.dot'):
                 parent = int((parent-1)/2)
             nodedescriptions+=str(i)+' [label = \"'+str(valnodes[i][0])+'\\n'
             testchar = chr(int(valnodes[i][1], 16))
-            if testchar.isalnum() or testchar in printsymbols:
+            if printhex is not True and (testchar.isalnum() or testchar in printsymbols):
                 nodedescriptions+='\''+testchar+'\''
             else:
                 nodedescriptions+='0x'+valnodes[i][1]

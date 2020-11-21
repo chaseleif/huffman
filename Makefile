@@ -1,9 +1,9 @@
 CC=gcc
 CFLAGS=-std=c99 -Wall -O3 -march=native -m64
-BINS=hfc hfcncurses
+BINS=hfc hfcncurses libhfc.so
 all: $(BINS)
 
-.PHONY: libhfc.so driver.o menu.o hfc hfcncurses clean test curses driver
+.PHONY: libhfc.so driver.o menu.o hfc hfcncurses clean clear test curses driver
 libhfc.so: huffmantree.c
 	$(CC) $(CFLAGS) -fPIC -shared -o $@ $^ -lc
 
@@ -21,6 +21,9 @@ hfcncurses: menu.o libhfc.so
 
 clean:
 	rm -f *.o
+
+clear:
+	rm -f *.o $(BINS)
 
 test: hfc
 	make driver
