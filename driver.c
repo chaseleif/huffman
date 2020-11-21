@@ -109,7 +109,6 @@ int main(int argc, char **argv) {
 	const double pctcompare = ((double)outsize)/((double)insize);
 	const double pctchange = (outsize>=insize)?((double)(outsize-insize))/((double)insize):((double)(insize-outsize))/((double)insize);
 	printf("The output file is %.2f%% the size of the input, this is a ",pctcompare*100);
-	if (outsize<insize) printf("-");
 	printf("%.2f%% ",pctchange*100);
 	if (outsize<insize) printf("decrease\n");
 	else printf("increase\n");

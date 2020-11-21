@@ -23,6 +23,7 @@ int uniquebytes;
 
 //print the huffman tree
 static void printhuffmantree(node *root) {
+	if (!root) return;
 	if (root->strval) { // this is a leaf
 		// this node has a count (tree values will not have a count after building during decompression)
 		if (root->count) {
@@ -44,6 +45,7 @@ static void printhuffmantree(node *root) {
 
 // destructor for the Huffman tree built using this file.
 static void freehuffmantree(node *root) {
+	if (!root) return;
 	if (root->strval) // this is a leaf
 		free(root->strval);
 	else { // this is an internal node
@@ -77,6 +79,7 @@ static inline char *getpathstring(const int path,const int steps) {
 // go left is zero, go right is one, the string is derived from path taken
 // returns the maximum depth (longest encoding)
 static byte generateencoding(node *root,const int path,const int steps) {
+	if (!root) return 0;
 	if (!root->left) { // this is a leaf node
 		root->strval = getpathstring(path,steps);
 		return steps;
@@ -390,7 +393,7 @@ void restorehuffmantree(FILE *infile) {
 	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
-	if (depth < 2 || depth>=uniquebytes) {
+	if (!depth || depth>uniquebytes) {
 		printf("\n###\n# huffmantree.c: restorehuffmantree, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
@@ -478,7 +481,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 	}
 	// second byte is maximum depth, it is the current depth of values we read
 	unsigned int depth = buffer[1];
-	if (depth < 2 || depth>=uniquebytes) {
+	if (!depth || depth>uniquebytes) {
 		printf("\n###\n# huffmantree.c: dorestore, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
@@ -668,44 +671,52 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	}
 	// build a Huffman tree with a dynamic array of disjoint trees
 	// we can have a maximum (if we only ever have 1 subtree) of ((uniquebytes+1)/2)+1 roots
-	node **roots = (node**)malloc(sizeof(node*)*(((uniquebytes+1)>>1)+1));
-	int numroots=0;
-	i=0; // i is a processed element counter
-	// popped nodes are swapped with the last element and the length of the array decremented
-	// new roots are pushed down
-	x=uniquebytes-1; // the last index, x moves toward zero
-	while (i<uniquebytes) {
-		if (i+1==uniquebytes) { // the last value
-			finalizehuffmantree(roots,&numroots,hfcheap[0]);
-			break;
-		}
-		if (i+2==uniquebytes) { // two values
-			if (addtorootlist(roots,&numroots,hfcheap[0],hfcheap[1])==1)
-				finalizehuffmantree(roots,&numroots,hfcheap[1]);
-			else finalizehuffmantree(roots,&numroots,NULL);
-			break;
-		}
-		node *val1=hfcheap[0]; // the first value is the root
-		node *swap = hfcheap[0]; // swap the root with the end, reduce array size
-		hfcheap[0]=hfcheap[x];
-		hfcheap[x]=swap;
-		pushdownminheap(hfcheap,--x); // check the new root, we've taken the old 'root' out of bounds
-		node *val2=hfcheap[0]; // the new root may not be consumed
-		// we made a new subtree
-		if (addtorootlist(roots,&numroots,val1,val2)==2) {
-			// used two values, get new root ready for the next iteration
-			swap = hfcheap[0];
+	if (uniquebytes>1) {
+		node **roots = (node**)malloc(sizeof(node*)*(((uniquebytes+1)>>1)+1));
+		int numroots=0;
+		i=0; // i is a processed element counter
+		// popped nodes are swapped with the last element and the length of the array decremented
+		// new roots are pushed down
+		x=uniquebytes-1; // the last index, x moves toward zero
+		while (i<uniquebytes) {
+			if (i+1==uniquebytes) { // the last value
+				finalizehuffmantree(roots,&numroots,hfcheap[0]);
+				break;
+			}
+			if (i+2==uniquebytes) { // two values
+				if (addtorootlist(roots,&numroots,hfcheap[0],hfcheap[1])==1)
+					finalizehuffmantree(roots,&numroots,hfcheap[1]);
+				else finalizehuffmantree(roots,&numroots,NULL);
+				break;
+			}
+			node *val1=hfcheap[0]; // the first value is the root
+			node *swap = hfcheap[0]; // swap the root with the end, reduce array size
 			hfcheap[0]=hfcheap[x];
 			hfcheap[x]=swap;
-			pushdownminheap(hfcheap,--x);
-			i+=2;
+			pushdownminheap(hfcheap,--x); // check the new root, we've taken the old 'root' out of bounds
+			node *val2=hfcheap[0]; // the new root may not be consumed
+			// we made a new subtree
+			if (addtorootlist(roots,&numroots,val1,val2)==2) {
+				// used two values, get new root ready for the next iteration
+				swap = hfcheap[0];
+				hfcheap[0]=hfcheap[x];
+				hfcheap[x]=swap;
+				pushdownminheap(hfcheap,--x);
+				i+=2;
+			}
+			else ++i; // only took the first root, the current root is ready for the next iteration
 		}
-		else ++i; // only took the first root, the current root is ready for the next iteration
+		// finalizehuffmantree put all of the roots together in this tree
+		hfcroot = roots[0];
+		// dont need the root list anymore
+		free(roots);
 	}
-	// finalizehuffmantree put all of the roots together in this tree
-	hfcroot = roots[0];
-	// dont need the root list anymore
-	free(roots);
+	else {
+		hfcroot = (node*)malloc(sizeof(node));
+		hfcroot->count=hfcheap[0]->count;
+		hfcroot->right=NULL; hfcroot->strval=NULL;
+		hfcroot->left=hfcheap[0];
+	}
 
 	// actual encoding will be of length of the depth of the node, with leading zeroes filling this length
 	// left is zero, right is one
