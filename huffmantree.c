@@ -516,7 +516,7 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 			}
 		}
 		// for each byte in this depth group
-		for (int x=1;x<=groupsize;++x) {
+		for (int x=0;x<groupsize;++x) {
 			node *newnode=(node*)malloc(sizeof(node));
 			newnode->val=0;
 			newnode->count=0;
@@ -622,7 +622,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	while ((i=fread(buffer,sizeof(byte),BYTEBUFSIZE,infile))>0) {
 		for (x=0;x<i;++x) {
 			if (!frequencies[buffer[x]]) ++uniquebytes;
-			frequencies[buffer[x]]+=1;
+			++frequencies[buffer[x]];
 		}
 	}
 	fseek(infile,0L,SEEK_SET); //rewind file
@@ -693,13 +693,14 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		node *val2=hfcheap[0]; // the new root may not be consumed
 		// we made a new subtree
 		if (addtorootlist(roots,&numroots,val1,val2)==2) {
+			// used two values, get new root ready for the next iteration
 			swap = hfcheap[0];
 			hfcheap[0]=hfcheap[x];
 			hfcheap[x]=swap;
-			pushdownminheap(hfcheap,--x); // new root is ready, return number of elements popped
+			pushdownminheap(hfcheap,--x);
 			i+=2;
 		}
-		else ++i; // only took the root
+		else ++i; // only took the first root, the current root is ready for the next iteration
 	}
 	// finalizehuffmantree put all of the roots together in this tree
 	hfcroot = roots[0];
@@ -831,7 +832,7 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 		freehuffmantree(hfcroot);
 		return;
 	}
-	if (doprints==1) {
+	if (doprints) {
 		printf("Metadata size = %d bytes + %d bit",bufferpos,7-bitshmt);
 		if (7-bitshmt!=1) printf("s");
 		printf(" = (%d bits)\n",(bufferpos<<3)+(7-bitshmt));
