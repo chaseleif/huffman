@@ -55,6 +55,7 @@ static void freehuffmantree(node *root) {
 
 // called to get the number of bits needed to represent a number. (max return is 8)
 static inline byte bitlength(int num) {
+	if (!num) return 1;
 	byte ret = 0;
 	while (num) {
 		num>>=1;
@@ -388,19 +389,21 @@ void restorehuffmantree(FILE *infile) {
 		printf("\n###\n# huffmantree.c: restorehuffmantree, bytes sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
-	// second byte is maximum depth, it is the current depth of values we read
-	unsigned int depth = buffer[1];
+	int bufferpos=1;
+	int bitshmt=7;
+	// second group is maximum depth, it is the current depth of values we read
+	unsigned int depth=0;
+	for (int i=bitlength(uniquebytes+1)-1;i>=0;--i,--bitshmt) {
+		depth|=((buffer[bufferpos]>>bitshmt)&1)<<i;
+	}
+	if (bitshmt<0) { bitshmt+=8; ++bufferpos; }
 	if (depth < 2 || depth>=uniquebytes) {
 		printf("\n###\n# huffmantree.c: restorehuffmantree, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
-	// third byte is for the EOF
-	if (buffer[2]>7) {
-		printf("\n###\n# huffmantree.c: restorehuffmantree, shmt sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
-		return;
-	}
-	int bufferpos=3;
-	int bitshmt=7;
+	bitshmt-=3;
+	if (bitshmt<0) { bitshmt+=8; ++bufferpos; }
+	// skip the finalshmt (for EOF)
 	if (hfcroot) freehuffmantree(hfcroot);
 	hfcroot = (node*)malloc(sizeof(node));
 	hfcroot->right=NULL;
@@ -476,22 +479,27 @@ void dorestore(FILE *infile,FILE *outfile,const byte doprints) {
 		printf("\n###\n# huffmantree.c: dorestore, bytes sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
-	// second byte is maximum depth, it is the current depth of values we read
-	unsigned int depth = buffer[1];
+	// one iterator for byte and bit position for each buffer
+	int bufferpos=1;
+	int bitshmt=7;
+	// second group is maximum depth, it is the current depth of values we read
+	unsigned int depth=0;
+	for (int i=bitlength(uniquebytes+1)-1;i>=0;--i) {
+		depth|=((buffer[bufferpos]>>bitshmt)&1)<<i;
+		--bitshmt;
+	}
+	if (bitshmt<0) { bitshmt+=8; ++bufferpos; }
 	if (depth < 2 || depth>=uniquebytes) {
 		printf("\n###\n# huffmantree.c: dorestore, depth sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
 		return;
 	}
-	// third byte is the final shmt, if this is 7 all bits will be the input data
+	// next 3 bits are the final shmt, if this is 7 the last byte is not partial
 	// if the final shmt is less than 7, we only have (7-finalshmt) bits in the last byte
-	byte finalshmt = buffer[2];
-	if (finalshmt>7) {
-		printf("\n###\n# huffmantree.c: dorestore, shmt sanity check failed!\n###\nThe input file was not created using this utility or something bad happened\nCannot decompress this file.\n");
-		return;
+	byte finalshmt = 0;
+	for (int i=2;i>=0;--i) {
+		finalshmt|= ((buffer[bufferpos]>>bitshmt)&1)<<i;
+		if (--bitshmt<0) { bitshmt=7; ++bufferpos; }
 	}
-	// one iterator for byte and bit position for each buffer
-	int bufferpos=3;
-	int bitshmt=7;
 	// make a new root
 	if (hfcroot) freehuffmantree(hfcroot);
 	hfcroot = (node*)malloc(sizeof(node));
@@ -712,34 +720,44 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 	// the maximum depth is returned
 	byte maxstringlength = generateencoding(hfcroot,0,0);
 
+	// write decoding information to front of output file
+	byte writebuffer[BYTEBUFSIZE];
+	// first byte = count of unique bytes, <=256 (count from zero as one so 256 can fit into 255)
+	writebuffer[0] = uniquebytes-1;
+	// second group = the maxdepth (maximum encoding string length)
+	// third group = 3 bits for the final bit shmt
+	writebuffer[1]=0; writebuffer[2]=0; writebuffer[3]=0;
+	byte firstwrite=0; // flag for if we've done a write and gotten whatever seond/third byte values ready
+	byte secondbyte = 0; byte thirdbyte = 0; // keeping the full byte so we can write in size of byte at the end
+	// write group information in front of group data, keep a separate iterator and shmt for the group size spot
+	// 7 is first bit shmt, 0 is last
+	// the group starts after the initial data, start using this iterator now
+	int groupbitshmt=7; // start shmt for groupsize. shmt is left shift with LOR into destination position. (decrementing to walk right) [7,6,5..,0]
+	int groupposstart=1; // pos i for groupsize0
+	for (i=bitlength(uniquebytes+1)-1;i>=0;--i) {
+		secondbyte|=((maxstringlength>>i)&1)<<groupbitshmt;
+		--groupbitshmt;
+	}
+	if (groupbitshmt<0) { groupbitshmt+=8; ++groupposstart; }
+	byte finalshmtbytepos=groupposstart-1; // will either be zero or one, corresponding to second/third byte for the end
+	int finalshmtbitshmt=groupbitshmt;
+	groupbitshmt-=3;
+	if (groupbitshmt<0) { groupbitshmt+=8; ++groupposstart; }
 	// printing every ullnode's strval prints the encoding
 	if (doprints==1) {
 		printf("Generated encoding:\n");
 		printhuffmantree(hfcroot);
 		printf("Writing metadata . . .\n");
 		printf("\t8 bits for number of unique bytes (%d)\n",uniquebytes);
-		printf("\t8 bits for maximum tree depth (%u)\n",maxstringlength);
-		printf("\t8 bits for final bit position (written after completion of compression)\n");
+		printf("\t%x bits for maximum tree depth (%u)\n",bitlength(uniquebytes+1),maxstringlength);
+		printf("\t3 bits for final bit position (written after completion of compression)\n");
 	}
-	// write decoding information to front of output file
-	byte writebuffer[BYTEBUFSIZE];
-	// first byte = count of unique bytes, <=256 (count from zero as one so 256 can fit into 255)
-	writebuffer[0] = uniquebytes-1;
-	// second byte = the maxdepth (maximum encoding string length)
-	writebuffer[1] = maxstringlength;
-	// third byte is reserved for recording the final shmt amount, this covers cases where the last byte is not full
-	writebuffer[2]=0;
 	// for the rest of the metadata
 	// the (byte+encoding) will now be grouped according to encoding length from maxlength, decrementing by 1
 	// each group will use only the number of bits for remaining size to indicate group count
 	// each val will have 1 byte followed by strlen bits
 	int bytesremaining=uniquebytes;
 	byte groupbitsneeded = bitlength(bytesremaining);
-	// write group information in front of group data, keep a separate iterator and shmt for the group size spot
-	// 7 is first bit shmt, 0 is last
-	int groupbitshmt=7; // start shmt for groupsize. shmt is left shift with LOR into destination position. (decrementing to walk right) [7,6,5..,0]
-	int groupposstart=3; // pos i for groupsize
-	writebuffer[3]=0; // zero out buffers as we increment iterators
 	// actual write position, starts (needed bits) behind the group size position
 	int bufferpos=groupposstart; // track position for write buffer
 	// push the bitshmt away from the groupshmt
@@ -763,6 +781,11 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 				for (x=0;charbuf[x]!='\0';++x) {
 					writebuffer[bufferpos++] = charbuf[x];
 					if (bufferpos==BYTEBUFSIZE) {
+						if (!firstwrite) {
+							firstwrite=1;
+							secondbyte|=writebuffer[1];
+							thirdbyte|=writebuffer[2];
+						}
 						bufferpos=0;
 						fwrite(writebuffer,sizeof(byte),BYTEBUFSIZE,outfile);
 					}
@@ -848,6 +871,11 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 					bitshmt=7;
 					++bufferpos;
 					if (flushbuffer) {
+						if (!firstwrite) {
+							firstwrite=1;
+							secondbyte|=writebuffer[1];
+							thirdbyte|=writebuffer[2];
+						}
 						flushbuffer=0;
 						fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
 						fflush(outfile);
@@ -858,16 +886,27 @@ void docompress(FILE *infile,FILE *outfile,const byte doprints) {
 			}
 		}
 	}
+	if (!firstwrite) {
+		secondbyte|=writebuffer[1];
+		thirdbyte|=writebuffer[2];
+	}
 	// write the final bits
 	if (bitshmt<7 || bufferpos) {
 		if (bitshmt<7) fwrite(writebuffer,sizeof(byte),bufferpos+1,outfile);
 		else if (bufferpos) fwrite(writebuffer,sizeof(byte),bufferpos,outfile);
 		fflush(outfile);
 	}
-	// the third byte of the compressed file indicates how many bits to read from the last byte
-	writebuffer[0]=bitshmt;
-	fseek(outfile,2,SEEK_SET);
-	fwrite(writebuffer,sizeof(byte),1,outfile);
+	// the first two bytes need the final shmt somewhere in there, this is required for decompression
+	writebuffer[0]=secondbyte; writebuffer[1]=thirdbyte;
+	for (i=2;i>=0;--i) {
+		writebuffer[finalshmtbytepos] |= ((bitshmt>>i)&1)<<finalshmtbitshmt;
+		if (--finalshmtbitshmt<0) {
+			finalshmtbitshmt=7;
+			++finalshmtbytepos;
+		}
+	}
+	fseek(outfile,1,SEEK_SET);
+	fwrite(writebuffer,sizeof(byte),2,outfile);
 	fflush(outfile);
 	if (doprints==1) printf("finished\n");
 }
