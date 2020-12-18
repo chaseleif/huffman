@@ -530,9 +530,58 @@ void codecscreen(const unsigned char codec) {
 		drawerrorandgetch(TITLELINENUM+2,leftstop,"Unable to open output \"%s\" !",output,"Press the any key to continue . . . ",NULL);
 		return;
 	}
-	if (codec==1)
-		docompress(infile,outfile);
-	else dorestore(infile,outfile);
+	int passesremaining=NUMPASSES;
+	if (passesremaining>1) {
+		char *tmp1name = "._multipass.hfc";
+		char *tmp2name = "._multipass2.hfc";
+		FILE *tmpfile = fopen(tmp1name,"wb");
+		if (!tmpfile) { fprintf(stderr,"Error opening %s for multiple passes\n",tmp1name); }
+		else {
+			FILE *tmp2file=NULL;
+			if (codec==1) docompress(infile,tmpfile);
+			else dorestore(infile,tmpfile);
+			fclose(tmpfile);
+			tmpfile=fopen(tmp1name,"rb");
+			unsigned char inpos=0; // 0 to read tmp, 1 to read tmp2
+			if (--passesremaining) {
+				while (--passesremaining) {
+					if (!inpos) tmp2file=fopen(tmp2name,"wb");
+					else tmpfile=fopen(tmp1name,"wb");
+					if (!tmpfile || !tmp2file) {
+						fprintf(stderr,"Error opening tmp files for multiple passes\n");
+						break;
+					}
+					freehuffmantree(hfcroot); hfcroot=NULL;
+					if (codec==1 && !inpos) docompress(tmpfile,tmp2file);
+					else if (codec==1) docompress(tmp2file,tmpfile);
+					else if (!inpos) dorestore(tmpfile,tmp2file);
+					else dorestore(tmp2file,tmpfile);
+					fclose(tmpfile); fclose(tmp2file);
+					if (!inpos) {
+						tmp2file=fopen(tmp2name,"rb");
+						inpos=1;
+					}
+					else {
+						tmpfile=fopen(tmp1name,"rb");
+						inpos=0;
+					}
+				}
+			}
+			freehuffmantree(hfcroot); hfcroot=NULL;
+			if (codec==1 && !inpos) docompress(tmpfile,outfile);
+			else if (codec==1) docompress(tmp2file,outfile);
+			else if (!inpos) dorestore(tmpfile,outfile);
+			else dorestore(tmp2file,outfile);
+			if (!inpos) fclose(tmpfile);
+			else fclose(tmp2file);
+			remove(tmp1name); remove(tmp2name);
+		}
+	}
+	if (passesremaining) {
+		if (codec==1)
+			docompress(infile,outfile);
+		else dorestore(infile,outfile);
+	}
 	fseek(infile,0L,SEEK_END);
 	fseek(outfile,0L,SEEK_END);
 	const unsigned long long insize = ftell(infile);

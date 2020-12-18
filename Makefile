@@ -23,7 +23,7 @@ clean:
 	rm -f *.o
 
 clear:
-	rm -f *.o $(BINS)
+	rm -f *.o $(BINS) hfc.restored test.hfc
 
 test: hfc
 	make driver
