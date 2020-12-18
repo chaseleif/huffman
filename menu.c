@@ -128,9 +128,10 @@ static int setmenuoptions(const unsigned char menulevel) {
 			{ strcpy(menuoptions[i],"File to decompress: "); concatwithparenthesis(menuoptions[i],decompressinfile); }
 			else if (i==1)
 			{ strcpy(menuoptions[i],"Output file: "); concatwithparenthesis(menuoptions[i],decompressoutfile); }
-			else if (i==2) strcpy(menuoptions[i],"Begin decompression");
-			else if (i==3) strcpy(menuoptions[i],"Huffman tree menu\n");
-			else if (i==4) strcpy(menuoptions[i],"Return to main menu");
+			else if (i==2) sprintf(menuoptions[i],"Pass count: %u",NUMPASSES);
+			else if (i==3) strcpy(menuoptions[i],"Begin decompression");
+			else if (i==4) strcpy(menuoptions[i],"Huffman tree menu\n");
+			else if (i==5) strcpy(menuoptions[i],"Return to main menu");
 			else { menuoptions[i][0]='\0'; return 0; }
 		}
 	}
@@ -234,11 +235,7 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 					}
 					curs_set(0);
 				}
-				else if (*highlight==2) { //compress: set num passes, decompress: decompress()
-					if (*menulevel==DECOMPRESSMENU) {
-						codecscreen(*menulevel);
-						break;
-					}
+				else if (*highlight==2) { //set num passes
 					curs_set(2);
 					mvwprintw(stdscr,MENUFIRSTLINE+lastmenuitem+2,leftstop,"%s",entershortprompt);
 					//change digit, format("menu line: %d")
@@ -289,18 +286,11 @@ static unsigned char processinput(const int ch,int *menulevel,int *highlight,con
 //					wborder(stdscr,'|','|','_','_',' ',' ','|','|');
 					refreshwithborder(stdscr,HFCBLKGRN);
 				}
-				else if (*highlight==3) { // compress: compress(), decompress: tree menu
-					if (*menulevel==DECOMPRESSMENU) treescreen(DECOMPRESSMENU);
-					else codecscreen(*menulevel);
-				}
-				else if (*highlight==4) { // compress: tree menu, decompress: return to main menu
-					if (*menulevel==DECOMPRESSMENU) {
-						*menulevel=MAINMENU;
-						*highlight=setmenuoptions(MAINMENU);
-					}
-					else treescreen(COMPRESSMENU);
-				}
-				else { // compress: return to main menu
+				else if (*highlight==3) // compress: compress(), decompress: restore()
+					codecscreen(*menulevel);
+				else if (*highlight==4) // tree menu
+					treescreen(*menulevel);
+				else { // return to main menu
 					*menulevel=MAINMENU;
 					*highlight=setmenuoptions(MAINMENU);
 				}
@@ -530,6 +520,10 @@ void codecscreen(const unsigned char codec) {
 		drawerrorandgetch(TITLELINENUM+2,leftstop,"Unable to open output \"%s\" !",output,"Press the any key to continue . . . ",NULL);
 		return;
 	}
+	if (hfcroot) {
+		freehuffmantree(hfcroot);
+		hfcroot=NULL;
+	}
 	int passesremaining=NUMPASSES;
 	if (passesremaining>1) {
 		char *tmp1name = "._multipass.hfc";
@@ -643,8 +637,7 @@ int main(int argc, char **argv) {
 		const int leftstop = CENTERMARGIN;
 		printcolor(stdscr,TITLELINENUM,leftstop,HFCGRNBLK,"%s",titlebar);
 		while (menuoptions[i][0]!='\0') {
-			if (!hfcroot &&
-				((menulevel==COMPRESSMENU && i==4) || (menulevel==DECOMPRESSMENU && i==3))) { // tree menu option, no tree
+			if (!hfcroot && i==4 && (menulevel==COMPRESSMENU || menulevel==DECOMPRESSMENU)) { // tree menu option, no tree
 				if (i==highlight) {
 					printwithattrandcolor(stdscr,i+MENUFIRSTLINE,leftstop,A_DIM,HFCGRNBLK,"%s",menuoptions[i]);
 				}
