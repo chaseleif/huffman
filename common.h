@@ -13,18 +13,14 @@ struct node {
 
 // huffmantree.c: libhfc.so
 // Shared functions ***********
-// free the data structures kept for display purposes
-void clearhfcvars();
 // restore just the huffman tree
 void restorehuffmantree(FILE *infile);
-// decompress infile and write to outfile, doprints enables data structure printf statements
-void dorestore(FILE *infile,FILE *outfile,const uint8_t doprints);
-// compress infile and write to outfile, doprints enables data structure printf statements
-void docompress(FILE *infile,FILE *outfile,const uint8_t doprints);
+// decompress infile and write to outfile
+void dorestore(FILE *infile,FILE *outfile);
+// compress infile and write to outfile
+void docompress(FILE *infile,FILE *outfile);
 /*
 // Static functions ***********
-//print the huffman tree
-static void printhuffmantree(node *root) {
 // destructor for the Huffman tree built using this file.
 static void freehuffmantree(node *root) {
 // called to get the number of bits needed to represent a number. (max return is 8)

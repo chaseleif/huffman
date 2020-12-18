@@ -12,8 +12,6 @@ static inline void printusage(char *prog) {
 	fprintf(stderr,"#\t-c\tdo compression\n");
 	fprintf(stderr,"#\t-d\tdo decompression\n");
 	fprintf(stderr,"#\t-o\toutput file location\n");
-	fprintf(stderr,"#\t-v\tverbose (prints data structure infos)\n");
-	fprintf(stderr,"#\t-b\tprint space separated values (during compression): frequency byte encoding\n");
 	fprintf(stderr,"#\tinput filename must precede the output filename (unless -o is used)\n###\n");
 }
 int main(int argc, char **argv) {
@@ -24,7 +22,6 @@ int main(int argc, char **argv) {
 	char *infilename=NULL;
 	char *outfilename=NULL;
 	unsigned char action=0;
-	unsigned char doprint=0;
 	// set some options
 	for (int i=1;i<argc;++i) {
 		if (argv[i][0]=='-') {
@@ -32,12 +29,6 @@ int main(int argc, char **argv) {
 				action=1;
 			else if ((argv[i][1]|0x20)=='d') // decompress
 				action=2;
-			else if ((argv[i][1]|0x20)=='v') // verbose output
-				doprint=1;
-			// batch output (compression prints a space separated value section for dot file creation)
-			// this enables compression to create the tree structure, the output file will be the space separated values
-			else if ((argv[i][1]|0x20)=='b')
-				doprint=2;
 			else if ((argv[i][1]|0x20)=='o') { // next arg is the outputfilename
 				if (i==argc-1) {
 					printusage(argv[0]);
@@ -59,7 +50,6 @@ int main(int argc, char **argv) {
 			return 0;
 		}
 	}
-	if (doprint==2) action=1;
 	// something wasn't set
 	if (!action || !infilename || !outfilename) {
 		printusage(argv[0]);
@@ -81,24 +71,16 @@ int main(int argc, char **argv) {
 	// action
 	if (action==1) { // compress
 		printf("Compressing \"%s\", output file: \"%s\"\n",infilename,outfilename);
-		docompress(infile,outfile,doprint); // when last parameter is non-zero printing is enabled
-		if (doprint==2) { // we just wanted a dot file
-			printf("Output for dot creation was written to %s\n",outfilename);
-			fclose(infile);
-			fclose(outfile);
-			return 0;
-		}
+		docompress(infile,outfile); // when last parameter is non-zero printing is enabled
 	}
 	else { // (if action==2) decompress
 		printf("Decompressing \"%s\", output file: \"%s\"\n",infilename,outfilename);
-		dorestore(infile,outfile,doprint);
+		dorestore(infile,outfile);
 	}
 	// seek to end of the files to get the size, outfile will not point to the end after compression
 	fseek(infile,0L,SEEK_END);
 	const unsigned long long insize = ftell(infile);
 	fclose(infile);
-	// data structures are not cleared automatically so they can be used with the curses utility
-	clearhfcvars();
 	// outfile
 	fseek(outfile,0L,SEEK_END);
 	const unsigned long long outsize = ftell(outfile);
@@ -113,7 +95,6 @@ int main(int argc, char **argv) {
 	if (outsize<insize) printf("decrease\n");
 	else printf("increase\n");
 
-	printf("Exiting program\n");
 	return 0;
 }
 
