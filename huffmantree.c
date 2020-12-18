@@ -108,7 +108,7 @@ static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
 	int mini=-1;
 	unsigned long long minval;
 	// this define option skips readding new tree nodes to the min heap
-#ifdef INCLUDETREESINMINHEAP
+#ifndef INCLUDETREESINMINHEAP
 		mini=-1; // mini==-1 when we make a new tree
 		minval=val1->count+val2->count; // minval will be the nodes sum
 		// check if adding val1 to another subtree is less than adding val1 to val2, is so we do that
@@ -120,7 +120,7 @@ static byte addtorootlist(node **roots,int *rootslen,node *val1,node *val2) {
 		}
 // The logic below acts as if nodes were 'reinserted' into the min heap
 // Nodes with smaller values become the next candidate to either merge with val1 or merge with another node.
-#else // ifndef INCLUDETREESINMINHEAP
+#else // ifdef INCLUDETREESINMINHEAP
 		// we have exactly one tree
 		if (*rootslen==1) {
 			// adding the two nodes is less than the adding to the existing tree
