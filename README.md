@@ -1,16 +1,13 @@
-Project for Algorithm Design & Analysis
+Compress / decompress files using Huffman encoding.
 
-Compress a text file using Huffman encoding.
+Compression and decompression defined in huffmantree.c, predefined in common.h. These functions each take two file streams.
 
-Compression:
-1) Use a minimum heap to order the frequency of characters.
-2) Build a binary Huffman tree from the heap
-3) Generate encoding based on the tree traversal
-4) Record dictionary, generate output
-5) Visualize tree
-6) Show compression achieved as a percentage
+Decompression information is stored at the front of the compressed file.
 
-Decompression:
-1) Read input
-  a) determine dictionary ... show dictionary
-  b) expand remaining input according to dictionary
+Works with any file input, compression stats in the html folder.
+
+Metadata to restore compressed files could be read from somewhere else (rather than just using one file).
+
+Can compile other code with huffmantree.c and common.h or use as a dynamic library.
+
+The curses utility is leftover from experimenting. It was fully functional before I removed unnecessary code from huffmantree.c.
