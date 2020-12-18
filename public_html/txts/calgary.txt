@@ -1,0 +1,80 @@
+Compressing "calgary.zip" -> (unique bytes=256)
+Metadata size = 516 bytes + 0 bits = (4128 bits)
+Input file "calgary.zip" is 1020495 bytes, outputfile is 1021011 bytes
+The output file is 100.05% the size of the input, this is a 0.05% increase
+
+Compressing "calgarycorpus" -> (unique bytes=256)
+Metadata size = 611 bytes + 3 bits = (4891 bits)
+Input file "calgarycorpus" is 3141622 bytes, outputfile is 2119779 bytes
+The output file is 67.47% the size of the input, this is a 32.53% decrease
+
+Compressing "BIB" -> (unique bytes=81)
+Metadata size = 174 bytes + 1 bit = (1393 bits)
+Input file "BIB" is 111261 bytes, outputfile is 73203 bytes
+The output file is 65.79% the size of the input, this is a 34.21% decrease
+
+Compressing "BOOK1" -> (unique bytes=82)
+Metadata size = 200 bytes + 2 bits = (1602 bits)
+Input file "BOOK1" is 768771 bytes, outputfile is 438603 bytes
+The output file is 57.05% the size of the input, this is a 42.95% decrease
+
+Compressing "BOOK2" -> (unique bytes=96)
+Metadata size = 219 bytes + 6 bits = (1758 bits)
+Input file "BOOK2" is 610856 bytes, outputfile is 368532 bytes
+The output file is 60.33% the size of the input, this is a 39.67% decrease
+
+Compressing "GEO" -> (unique bytes=256)
+Metadata size = 570 bytes + 3 bits = (4563 bits)
+Input file "GEO" is 102400 bytes, outputfile is 74680 bytes
+The output file is 72.93% the size of the input, this is a 27.07% decrease
+
+Compressing "NEWS" -> (unique bytes=98)
+Metadata size = 211 bytes + 0 bits = (1688 bits)
+Input file "NEWS" is 377109 bytes, outputfile is 246981 bytes
+The output file is 65.49% the size of the input, this is a 34.51% decrease
+
+Compressing "OBJ1" -> (unique bytes=256)
+Metadata size = 564 bytes + 5 bits = (4517 bits)
+Input file "OBJ1" is 21504 bytes, outputfile is 16942 bytes
+The output file is 78.79% the size of the input, this is a 21.21% decrease
+
+Compressing "OBJ2" -> (unique bytes=256)
+Metadata size = 579 bytes + 6 bits = (4638 bits)
+Input file "OBJ2" is 246814 bytes, outputfile is 195969 bytes
+The output file is 79.40% the size of the input, this is a 20.60% decrease
+
+Compressing "PAPER1" -> (unique bytes=95)
+Metadata size = 213 bytes + 1 bit = (1705 bits)
+Input file "PAPER1" is 53161 bytes, outputfile is 33550 bytes
+The output file is 63.11% the size of the input, this is a 36.89% decrease
+
+Compressing "PAPER2" -> (unique bytes=91)
+Metadata size = 214 bytes + 1 bit = (1713 bits)
+Input file "PAPER2" is 82199 bytes, outputfile is 47829 bytes
+The output file is 58.19% the size of the input, this is a 41.81% decrease
+
+Compressing "PIC" -> (unique bytes=159)
+Metadata size = 406 bytes + 6 bits = (3254 bits)
+Input file "PIC" is 513216 bytes, outputfile is 158699 bytes
+The output file is 30.92% the size of the input, this is a 69.08% decrease
+
+Compressing "PROGC" -> (unique bytes=92)
+Metadata size = 196 bytes + 0 bits = (1568 bits)
+Input file "PROGC" is 39611 bytes, outputfile is 26219 bytes
+The output file is 66.19% the size of the input, this is a 33.81% decrease
+
+Compressing "PROGL" -> (unique bytes=87)
+Metadata size = 199 bytes + 0 bits = (1592 bits)
+Input file "PROGL" is 71646 bytes, outputfile is 43434 bytes
+The output file is 60.62% the size of the input, this is a 39.38% decrease
+
+Compressing "PROGP" -> (unique bytes=89)
+Metadata size = 195 bytes + 7 bits = (1567 bits)
+Input file "PROGP" is 49379 bytes, outputfile is 30863 bytes
+The output file is 62.50% the size of the input, this is a 37.50% decrease
+
+Compressing "TRANS" -> (unique bytes=99)
+Metadata size = 216 bytes + 1 bit = (1729 bits)
+Input file "TRANS" is 93695 bytes, outputfile is 65634 bytes
+The output file is 70.05% the size of the input, this is a 29.95% decrease
+

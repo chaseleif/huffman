@@ -1,0 +1,75 @@
+Compressing "Cuptiv11.txt" -> (unique bytes=92)
+Metadata size = 213 bytes + 1 bit = (1705 bits)
+Input file "Cuptiv11.txt" is 225820 bytes, outputfile is 139606 bytes
+The output file is 61.82% the size of the input, this is a 38.18% decrease
+
+Compressing "hfcncurses" -> (unique bytes=256)
+Metadata size = 578 bytes + 4 bits = (4628 bits)
+Input file "hfcncurses" is 35960 bytes, outputfile is 21243 bytes
+The output file is 59.07% the size of the input, this is a 40.93% decrease
+
+Compressing "MaerchenDerBruederGrimm.txt" -> (unique bytes=82)
+Metadata size = 201 bytes + 5 bits = (1613 bits)
+Input file "MaerchenDerBruederGrimm.txt" is 864520 bytes, outputfile is 491664 bytes
+The output file is 56.87% the size of the input, this is a 43.13% decrease
+
+Compressing "grimm.hfc" -> (unique bytes=256)
+Metadata size = 527 bytes + 0 bits = (4216 bits)
+Input file "grimm.hfc" is 491664 bytes, outputfile is 484104 bytes
+The output file is 98.46% the size of the input, this is a 1.54% decrease
+
+Compressing "hfc" -> (unique bytes=237)
+Metadata size = 540 bytes + 0 bits = (4320 bits)
+Input file "hfc" is 17152 bytes, outputfile is 8225 bytes
+The output file is 47.95% the size of the input, this is a 52.05% decrease
+
+Compressing "libhfc.so" -> (unique bytes=256)
+Metadata size = 583 bytes + 2 bits = (4666 bits)
+Input file "libhfc.so" is 33360 bytes, outputfile is 23140 bytes
+The output file is 69.36% the size of the input, this is a 30.64% decrease
+
+Compressing "WorksOfEdgarAllenPoe.txt" -> (unique bytes=102)
+Metadata size = 259 bytes + 2 bits = (2074 bits)
+Input file "WorksOfEdgarAllenPoe.txt" is 467392 bytes, outputfile is 264147 bytes
+The output file is 56.52% the size of the input, this is a 43.48% decrease
+
+Compressing "AMillionRandomDigits.bin" -> (unique bytes=256)
+Metadata size = 516 bytes + 0 bits = (4128 bits)
+Input file "AMillionRandomDigits.bin" is 415241 bytes, outputfile is 415757 bytes
+The output file is 100.12% the size of the input, this is a 0.12% increase
+
+Compressing "repeatedbyte", output file: "repeatedbyte1" -> (unique bytes=1)
+Metadata size = 4 bytes + 2 bits = (34 bits)
+Input file "repeatedbyte" is 415241 bytes, outputfile "repeatedbyte1" is 51910 bytes
+The output file is 12.50% the size of the input, this is a 87.50% decrease
+
+Compressing "repeatedbyte1", output file: "repeatedbyte2" -> (unique bytes=5)
+Metadata size = 10 bytes + 1 bit = (81 bits)
+Input file "repeatedbyte1" is 51910 bytes, outputfile "repeatedbyte2" is 12988 bytes
+The output file is 25.02% the size of the input, this is a 74.98% decrease
+
+Compressing "repeatedbyte2", output file: "repeatedbyte3" -> (unique bytes=14)
+Metadata size = 25 bytes + 5 bits = (205 bits)
+Input file "repeatedbyte2" is 12988 bytes, outputfile "repeatedbyte3" is 3277 bytes
+The output file is 25.23% the size of the input, this is a 74.77% decrease
+
+Compressing "repeatedbyte3", output file: "repeatedbyte4" -> (unique bytes=32)
+Metadata size = 59 bytes + 1 bit = (473 bits)
+Input file "repeatedbyte3" is 3277 bytes, outputfile "repeatedbyte4" is 894 bytes
+The output file is 27.28% the size of the input, this is a 72.72% decrease
+
+Compressing "repeatedbyte4", output file: "repeatedbyte5" -> (unique bytes=70)
+Metadata size = 136 bytes + 3 bits = (1091 bits)
+Input file "repeatedbyte4" is 894 bytes, outputfile "repeatedbyte5" is 410 bytes
+The output file is 45.86% the size of the input, this is a 54.14% decrease
+
+Compressing "repeatedbyte5", output file: "repeatedbyte6" -> (unique bytes=142)
+Metadata size = 293 bytes + 5 bits = (2349 bits)
+Input file "repeatedbyte5" is 410 bytes, outputfile "repeatedbyte6" is 550 bytes
+The output file is 134.15% the size of the input, this is a 34.15% increase
+
+Compressing "repeatedbyte6", output file: "repeatedbyte7" -> (unique bytes=217)
+Metadata size = 441 bytes + 6 bits = (3534 bits)
+Input file "repeatedbyte6" is 550 bytes, outputfile "repeatedbyte7" is 948 bytes
+The output file is 172.36% the size of the input, this is a 72.36% increase
+
