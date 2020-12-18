@@ -10,6 +10,9 @@
 // whether to consider new huffman trees as part of the min heap during construction of the hfc tree
 #define INCLUDETREESINMINHEAP
 
+// for curses utility, define this to not immediately free the tree
+//#define _DONTFREETREES
+
 // the node and 8 bit unsigned int
 // the node has { node*left,node*right,ull count,byte val,char* strval }
 typedef struct node node;
@@ -19,18 +22,6 @@ typedef uint8_t byte;
 node *hfcroot=NULL;
 
 // Static functions ***********
-
-// destructor for the Huffman tree built using this file.
-static void freehuffmantree(node *root) {
-	if (!root) return;
-	if (root->strval) // this is a leaf
-		free(root->strval);
-	else { // this is an internal node
-		freehuffmantree(root->left);
-		freehuffmantree(root->right);
-	}
-	free(root);
-}
 
 // called to get the number of bits needed to represent a number. (max return is 8)
 static inline byte bitlength(int num) {
@@ -344,6 +335,18 @@ static void recreatehuffmantree(node *insertnode) {
 
 // Shared functions ***********
 
+// destructor for the Huffman tree built using this file.
+void freehuffmantree(node *root) {
+	if (!root) return;
+	if (root->strval) // this is a leaf
+		free(root->strval);
+	else { // this is an internal node
+		freehuffmantree(root->left);
+		freehuffmantree(root->right);
+	}
+	free(root);
+}
+
 // decompress infile and write outfile
 void dorestore(FILE *infile,FILE *outfile) {
 	// in buffer
@@ -479,7 +482,10 @@ void dorestore(FILE *infile,FILE *outfile) {
 		fwrite(writebuffer,sizeof(byte),writepos,outfile);
 		fflush(outfile);
 	}
+//for curses visualization
+#ifndef _DONTFREETREES
 	freehuffmantree(hfcroot);
+#endif
 }
 
 // function to do the compression, pass in/out file pointers
@@ -698,6 +704,9 @@ void docompress(FILE *infile,FILE *outfile) {
 //	fwrite(writebuffer,sizeof(byte),1,outfile);
 //	fflush(outfile);
 
+//for curses visualization
+#ifndef _DONTFREETREES
 	freehuffmantree(hfcroot);
+#endif
 }
 

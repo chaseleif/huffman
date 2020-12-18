@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-std=c99 -Wall -O3 -march=native -m64
-BINS=hfc libhfc.so
+BINS=hfc libhfc.so hfcncurses
 all: $(BINS)
 
 .PHONY: libhfc.so driver.o hfc clean clear test driver
@@ -10,8 +10,14 @@ libhfc.so: huffmantree.c
 driver.o: driver.c
 	$(CC) $(CFLAGS) -c $^
 
-hfc: driver.o libhfc.so
-	$(CC) $(CFLAGS) -o $@ $^ -L. -lhfc
+huffmantree.o: huffmantree.c
+	$(CC) $(CFLAGS) -c $^
+
+hfc: driver.o huffmantree.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+#hfc: driver.o libhfc.so
+#	$(CC) $(CFLAGS) -o $@ $^ -L. -lhfc
 
 clean:
 	rm -f *.o
@@ -28,9 +34,11 @@ driver: hfc
 	diff hfc hfc.restored
 
 # the ncurses practice
-#menu.o: menu.c
-#	$(CC) $(CFLAGS) -lncursesw -D_GNU_SOURCE -c $^
-#hfcncurses: menu.o libhfc.so
-#	$(CC) $(CFLAGS) --enable-widec -lncursesw -D_GNU_SOURCE -o $@ $^ -L. -lhfc
-#curses: hfcncurses
-#	./hfcncurses
+cursestree.o: huffmantree.c
+	$(CC) $(CFLAGS) -D_DONTFREETREES -o $@ -c $^
+menu.o: menu.c
+	$(CC) $(CFLAGS) -lncursesw -D_GNU_SOURCE -c $^
+hfcncurses: menu.o cursestree.o
+	$(CC) $(CFLAGS) --enable-widec -lncursesw -D_GNU_SOURCE -o $@ $^
+curses: hfcncurses
+	./hfcncurses

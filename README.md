@@ -10,4 +10,4 @@ Metadata to restore compressed files could be read from somewhere else (rather t
 
 Can compile other code with huffmantree.c and common.h or use as a dynamic library.
 
-The curses utility is leftover from experimenting. It was fully functional before I removed unnecessary code from huffmantree.c.
+The curses utility was a trial. It works to compress and decompress and it will display the huffman tree's values in a table

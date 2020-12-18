@@ -11,18 +11,16 @@ struct node {
 	char *strval;
 };
 
-// huffmantree.c: libhfc.so
+// huffmantree.c / libhfc.so
 // Shared functions ***********
-// restore just the huffman tree
-void restorehuffmantree(FILE *infile);
 // decompress infile and write to outfile
 void dorestore(FILE *infile,FILE *outfile);
 // compress infile and write to outfile
 void docompress(FILE *infile,FILE *outfile);
+// destructor for the Huffman tree, used in curses app
+void freehuffmantree(struct node *root);
 /*
 // Static functions ***********
-// destructor for the Huffman tree built using this file.
-static void freehuffmantree(node *root) {
 // called to get the number of bits needed to represent a number. (max return is 8)
 static inline byte bitlength(int num) {
 // returns a string from a path value and number of steps, handles leading zeroes
